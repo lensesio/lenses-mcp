@@ -1,7 +1,7 @@
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from typing import Any, Dict, List, Optional
 
-from common.api_client import api_client
+from api_client import api_client
 
 """
 Topics / Datasets operations.
