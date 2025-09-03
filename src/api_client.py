@@ -1,33 +1,22 @@
+import httpx
 import os
 from typing import Any, Dict, Optional
-from .config import LENSES_HOST_URL, LENSES_PORT
-import httpx
-
+from config import LENSES_HOST_URL, LENSES_PORT
 
 LENSES_API_BASE_URL = f"{LENSES_HOST_URL}:{LENSES_PORT}"
-LENSES_SESSION_COOKIE = os.getenv("LENSES_SESSION_COOKIE", "")
+LENSES_API_KEY = os.getenv("LENSES_API_KEY", "")
 
 
 """HTTP client for Lenses API operations."""
 class LensesAPIClient:
     
-    def __init__(self, base_url: str, session_cookie: str):
+    def __init__(self, base_url: str, bearer_token: str):
         self.base_url = base_url.rstrip('/')
         self.headers = {
             "Content-Type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Authorization": f"Bearer {bearer_token}"
         }
-        self.cookies = {}
-        
-        # Parse session cookie
-        if session_cookie:
-            if '=' in session_cookie:
-                # Handle "name=value" format
-                key, value = session_cookie.split('=', 1)
-                self.cookies[key] = value
-            else:
-                # Assume it's just a session ID and use common session cookie names
-                self.cookies["JSESSIONID"] = session_cookie
     
     async def _make_request(
         self, 
@@ -44,7 +33,6 @@ class LensesAPIClient:
                     method=method,
                     url=url,
                     headers=self.headers,
-                    cookies=self.cookies,
                     json=data if data else None,
                     timeout=30.0
                 )
@@ -72,5 +60,4 @@ class LensesAPIClient:
             except httpx.RequestError as e:
                 raise Exception(f"Network error: {str(e)}")
 
-# Initialize API client
-api_client = LensesAPIClient(LENSES_API_BASE_URL, LENSES_SESSION_COOKIE)
+api_client = LensesAPIClient(LENSES_API_BASE_URL, LENSES_API_KEY)
