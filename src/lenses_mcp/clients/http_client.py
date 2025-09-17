@@ -1,17 +1,16 @@
-import httpx
-import os
 from typing import Any, Dict, Optional
-from config import LENSES_HOST_URL, LENSES_PORT
 
-LENSES_API_BASE_URL = f"{LENSES_HOST_URL}:{LENSES_PORT}"
-LENSES_API_KEY = os.getenv("LENSES_API_KEY", "")
+import httpx
+from config import LENSES_API_HTTP_PORT, LENSES_API_HTTP_URL, LENSES_API_KEY
+
+LENSES_API_HTTP_BASE_URL = f"{LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}"
 
 
 """HTTP client for Lenses API operations."""
 class LensesAPIClient:
     
     def __init__(self, base_url: str, bearer_token: str):
-        self.base_url = base_url.rstrip('/')
+        self.base_url = base_url.rstrip("/")
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -24,7 +23,6 @@ class LensesAPIClient:
         endpoint: str, 
         data: Optional[Dict] = None
     ) -> Dict[str, Any]:
-        """Make HTTP request to Lenses API."""
         url = f"{self.base_url}{endpoint}"
         
         async with httpx.AsyncClient() as client:
@@ -53,11 +51,12 @@ class LensesAPIClient:
                 try:
                     error_response = e.response.json()
                     error_detail = error_response.get("title", f"HTTP {e.response.status_code}")
-                except:
+                except Exception:
                     error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
                 
                 raise Exception(f"API request failed: {error_detail}")
             except httpx.RequestError as e:
                 raise Exception(f"Network error: {str(e)}")
 
-api_client = LensesAPIClient(LENSES_API_BASE_URL, LENSES_API_KEY)
+
+api_client = LensesAPIClient(LENSES_API_HTTP_BASE_URL, LENSES_API_KEY)
