@@ -1,18 +1,17 @@
-from fastmcp import FastMCP
 from typing import Any, Dict, List, Optional
 
-from api_client import api_client
+from clients.http_client import api_client
+from fastmcp import FastMCP
 
 """
-Topics / Datasets operations.
+Topics and datasets operations.
 """
-
-# ======================
-# KAFKA TOPIC OPERATIONS
-# ======================
-
 def register_topics(mcp: FastMCP):
 
+    # ================
+    # TOPIC OPERATIONS
+    # ================
+    
     @mcp.tool()
     async def list_topics(environment: str) -> List[Dict[str, Any]]:
         """
@@ -43,22 +42,7 @@ def register_topics(mcp: FastMCP):
         return await api_client._make_request("GET", endpoint)
 
     @mcp.tool()
-    async def get_topic_partitions(environment: str, topic_name: str) -> List[Dict[str, Any]]:
-        """
-        Retrieve partition details for a given topic.
-        
-        Args:
-            environment: The environment name.
-            topic_name: Name of the topic.
-        
-        Returns:
-            List of partition details with leader, replicas, etc.
-        """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/topics/{topic_name}/partitions"
-        return await api_client._make_request("GET", endpoint)
-
-    @mcp.tool()
-    async def get_topic_partitions_v2(environment: str, topic_name: str) -> Dict[str, Any]:
+    async def get_topic_partitions(environment: str, topic_name: str) -> Dict[str, Any]:
         """
         Retrieve detailed partition information including messages and bytes (v2 endpoint).
         
@@ -73,41 +57,7 @@ def register_topics(mcp: FastMCP):
         return await api_client._make_request("GET", endpoint)
 
     @mcp.tool()
-    async def create_topic_simple(
-        environment: str,
-        topic_name: str,
-        partitions: int = 1,
-        replication: int = 1,
-        configs: Optional[Dict[str, str]] = None
-    ) -> str:
-        """
-        Creates a new Kafka topic with simple configuration.
-        
-        Args:
-            environment: The environment name.
-            topic_name: Name of the topic to create.
-            partitions: Number of partitions (default: 1).
-            replication: Replication factor (default: 1).
-            configs: Additional topic configurations.
-        
-        Returns:
-            Success message with topic name.
-        """
-        payload = {
-            "topicName": topic_name,
-            "partitions": partitions,
-            "replication": replication
-        }
-        
-        if configs:
-            payload["configs"] = configs
-        
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/topics"
-        result = await api_client._make_request("POST", endpoint, payload)
-        return result
-
-    @mcp.tool()
-    async def create_topic_advanced(
+    async def create_topic(
         environment: str,
         name: str,
         partitions: int = 1,
@@ -119,7 +69,7 @@ def register_topics(mcp: FastMCP):
         value_schema: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Creates a new Kafka topic with advanced format and schema configuration.
+        Creates a new Kafka topic with optional format and schema configuration.
         
         Args:
             environment: The environment name.
@@ -158,21 +108,6 @@ def register_topics(mcp: FastMCP):
         
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/kafka/topic"
         return await api_client._make_request("POST", endpoint, payload)
-
-    @mcp.tool()
-    async def delete_topic(environment: str, topic_name: str) -> str:
-        """
-        Delete a Kafka topic.
-        
-        Args:
-            environment: The environment name.
-            topic_name: Name of the topic to delete.
-        
-        Returns:
-            Success message.
-        """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/topics/{topic_name}"
-        return await api_client._make_request("DELETE", endpoint)
 
     @mcp.tool()
     async def update_topic_config(
@@ -253,28 +188,6 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/topics/{topic_name}/{partition}/{offset}/resend"
         return await api_client._make_request("PUT", endpoint)
 
-    @mcp.tool()
-    async def delete_message(
-        environment: str, 
-        topic_name: str, 
-        partition: int, 
-        offset: int
-    ) -> str:
-        """
-        Delete a Kafka message.
-        
-        Args:
-            environment: The environment name.
-            topic_name: Name of the topic.
-            partition: Kafka partition number.
-            offset: Kafka offset.
-        
-        Returns:
-            Success message.
-        """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/topics/{topic_name}/{partition}/{offset}"
-        return await api_client._make_request("DELETE", endpoint)
-
     # =========================
     # TOPIC METADATA OPERATIONS
     # =========================
@@ -307,86 +220,6 @@ def register_topics(mcp: FastMCP):
         """
         endpoint = f"/api/v1/environments/{environment}/proxy/api/metadata/topics/{topic_name}"
         return await api_client._make_request("GET", endpoint)
-
-    @mcp.tool()
-    async def create_topic_metadata(
-        environment: str,
-        topic_name: str,
-        key_type: Optional[str] = None,
-        value_type: Optional[str] = None,
-        key_schema: Optional[str] = None,
-        key_schema_version: Optional[int] = None,
-        key_schema_inlined: Optional[str] = None,
-        value_schema: Optional[str] = None,
-        value_schema_version: Optional[int] = None,
-        value_schema_inlined: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        additional_info: Optional[Any] = None
-    ) -> Dict[str, Any]:
-        """
-        Create or update topic metadata.
-        
-        Args:
-            environment: The environment name.
-            topic_name: Name of the topic.
-            key_type: Key data type.
-            value_type: Value data type.
-            key_schema: Key schema reference.
-            key_schema_version: Key schema version.
-            key_schema_inlined: Inlined key schema.
-            value_schema: Value schema reference.
-            value_schema_version: Value schema version.
-            value_schema_inlined: Inlined value schema.
-            description: Topic description.
-            tags: List of tags.
-            additional_info: Additional metadata information.
-        
-        Returns:
-            Creation result.
-        """
-        payload = {"topicName": topic_name}
-        
-        if key_type:
-            payload["keyType"] = key_type
-        if value_type:
-            payload["valueType"] = value_type
-        if key_schema:
-            payload["keySchema"] = key_schema
-        if key_schema_version:
-            payload["keySchemaVersion"] = key_schema_version
-        if key_schema_inlined:
-            payload["keySchemaInlined"] = key_schema_inlined
-        if value_schema:
-            payload["valueSchema"] = value_schema
-        if value_schema_version:
-            payload["valueSchemaVersion"] = value_schema_version
-        if value_schema_inlined:
-            payload["valueSchemaInlined"] = value_schema_inlined
-        if description:
-            payload["description"] = description
-        if tags:
-            payload["tags"] = tags
-        if additional_info is not None:
-            payload["additionalInfo"] = additional_info
-        
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/metadata/topics"
-        return await api_client._make_request("POST", endpoint, payload)
-
-    @mcp.tool()
-    async def delete_topic_metadata(environment: str, topic_name: str) -> Dict[str, Any]:
-        """
-        Delete topic metadata.
-        
-        Args:
-            environment: The environment name.
-            topic_name: Name of the topic.
-        
-        Returns:
-            Success confirmation.
-        """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/metadata/topics/{topic_name}"
-        return await api_client._make_request("DELETE", endpoint)
 
     # ========================
     # KAFKA DATASET OPERATIONS
@@ -483,59 +316,6 @@ def register_topics(mcp: FastMCP):
         return await api_client._make_request("GET", endpoint)
 
     @mcp.tool()
-    async def set_dataset_description(
-        environment: str, 
-        connection: str, 
-        dataset_name: str, 
-        description: str
-    ) -> Dict[str, Any]:
-        """
-        Sets a dataset description.
-        
-        Args:
-            environment: The environment name.
-            connection: The connection name (e.g., "kafka").
-            dataset_name: The dataset name.
-            description: The description to set.
-        
-        Returns:
-            Success confirmation.
-        """
-        if not description.strip():
-            raise ValueError("Description cannot be blank")
-        
-        payload = {"description": description}
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/{connection}/{dataset_name}/description"
-        
-        return await api_client._make_request("PUT", endpoint, payload)
-
-    @mcp.tool()
-    async def add_dataset_tags(
-        environment: str, 
-        connection: str, 
-        dataset_name: str, 
-        tags: List[str]
-    ) -> Dict[str, Any]:
-        """
-        Add one or more tags to a dataset.
-        
-        Args:
-            environment: The environment name.
-            connection: The connection name (e.g., "kafka").
-            dataset_name: The dataset name.
-            tags: List of tag names to add.
-        
-        Returns:
-            Success confirmation.
-        """
-        payload = {
-            "tags": [{"name": tag} for tag in tags]
-        }
-        
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/{connection}/{dataset_name}/tags"
-        return await api_client._make_request("PUT", endpoint, payload)
-
-    @mcp.tool()
     async def get_dataset_message_metrics(environment: str, entity_name: str) -> List[Dict[str, Any]]:
         """
         Get ranged metrics for a dataset's messages.
@@ -549,22 +329,3 @@ def register_topics(mcp: FastMCP):
         """
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/kafka/{entity_name}/messages/metrics"
         return await api_client._make_request("GET", endpoint)
-
-    @mcp.tool()
-    async def bulk_delete_datasets(environment: str, dataset_ids: List[str]) -> Dict[str, Any]:
-        """
-        Deletes multiple datasets at once.
-        
-        Args:
-            environment: The environment name.
-            dataset_ids: List of dataset IDs (e.g., ["kafka://topic1", "kafka://topic2"]).
-        
-        Returns:
-            Bulk operation results showing success/failure for each dataset.
-        """
-        payload = {
-            "items": [{"id": dataset_id} for dataset_id in dataset_ids]
-        }
-        
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/bulk/datasets/delete"
-        return await api_client._make_request("POST", endpoint, payload)
