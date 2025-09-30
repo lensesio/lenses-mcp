@@ -1,27 +1,27 @@
 """
 Lenses MCP Server for interacting with Lenses HQ.
 """
-from fastmcp import FastMCP, settings
-from loguru import logger
-
 from config import (
     LENSES_API_HTTP_PORT,
     LENSES_API_HTTP_URL,
     LENSES_API_WEBSOCKET_PORT,
     LENSES_API_WEBSOCKET_URL,
-    MCP_TRANSPORT,
     MCP_HOST,
     MCP_PORT,
+    MCP_TRANSPORT,
 )
+from fastmcp import FastMCP, settings
+from loguru import logger
 from tools.environments import register_environments
+from tools.kafka_consumer_groups import register_kafka_consumer_groups
 from tools.sql import register_sql
 from tools.topics import register_topics
-from tools.kafka_consumer_groups import register_kafka_consumer_groups
+
+logger = logger.bind(name="MCPServer")
 
 settings.log_level = "INFO"
 settings.stateless_http = True
 
-logger = logger.bind(name="LensesMCPTools")
 
 mcp = FastMCP(
     name="Lenses MCP Server",

@@ -9,10 +9,9 @@ from config import (
 )
 from loguru import logger
 
-logger = logger.bind(name="LensesMCPTools")
+logger = logger.bind(name="WebSocketClient")
 
 LENSES_API_WEBSOCKET_BASE_URL = f"{LENSES_API_WEBSOCKET_URL}:{LENSES_API_WEBSOCKET_PORT}"
-
 
 """WebSocket client for Lenses API operations."""
 class LensesWebSocketClient:
@@ -47,18 +46,6 @@ class LensesWebSocketClient:
 
                     match message_type:
                         case "RECORD":
-                            # record = MessageRecord()
-                            # data_ = data.get("data")
-
-                            # if not data_:
-                            #     return
-
-                            # for key, value in data_.items():
-                            #     record.set_key(key, value)
-
-                            # records.append(record)
-                            # logger.info(f"Record appended: {record}")
-
                             data_ = data.get("data")
 
                             if not data_:
@@ -75,7 +62,7 @@ class LensesWebSocketClient:
                         case _:
                             logger.info(f"Discarding unsupported message type: {message_type}")
         except Exception as e:
-            logger.info(f"Unhandled error while fetching messages: {e}")
+            logger.error(f"Unhandled error while fetching messages: {e}")
             raise e
 
 
