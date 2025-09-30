@@ -14,3 +14,5 @@ LENSES_API_WEBSOCKET_PORT = os.getenv("LENSES_API_WEBSOCKET_PORT", "443")
 LENSES_API_KEY= os.getenv("LENSES_API_KEY", "")
 
 MCP_TRANSPORT = os.getenv("MCP_TRANSPORT", "stdio")
+MCP_HOST = os.getenv("MCP_HOST", "127.0.0.1")
+MCP_PORT = os.getenv("MCP_PORT", 8000)

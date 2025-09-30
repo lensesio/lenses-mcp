@@ -10,6 +10,8 @@ from config import (
     LENSES_API_WEBSOCKET_PORT,
     LENSES_API_WEBSOCKET_URL,
     MCP_TRANSPORT,
+    MCP_HOST,
+    MCP_PORT,
 )
 from tools.environments import register_environments
 from tools.sql import register_sql
@@ -32,9 +34,13 @@ register_sql(mcp)
 
 
 if __name__ == "__main__":
-    logger.info("Starting Lenses MCP Server")
+    logger.info(f"Starting Lenses MCP Server: {MCP_HOST}:{MCP_PORT} with {MCP_TRANSPORT}")
     logger.info(f"API base HTTP URL: {LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}")
     logger.info(f"API base WebSocket URL: {LENSES_API_WEBSOCKET_URL}:{LENSES_API_WEBSOCKET_PORT}")
     logger.info(f"Tools count: {len(mcp.list_tools())}")
     
-    mcp.run(transport=MCP_TRANSPORT)
+    mcp.run(
+        transport=MCP_TRANSPORT,
+        host=MCP_HOST,
+        port=MCP_PORT
+    )
