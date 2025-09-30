@@ -23,10 +23,7 @@ settings.log_level = "INFO"
 settings.stateless_http = True
 
 
-mcp = FastMCP(
-    name="Lenses MCP Server",
-    instructions="This server provides access to Lenses HQ."
-)
+mcp = FastMCP("Lenses.io")
 
 # Register all Lenses tools modules
 register_environments(mcp)
