@@ -16,6 +16,7 @@ from config import (
 from tools.environments import register_environments
 from tools.sql import register_sql
 from tools.topics import register_topics
+from tools.kafka_consumer_groups import register_kafka_consumer_groups
 
 settings.log_level = "INFO"
 settings.stateless_http = True
@@ -29,8 +30,9 @@ mcp = FastMCP(
 
 # Register all Lenses tools modules
 register_environments(mcp)
-register_topics(mcp)
+register_kafka_consumer_groups(mcp)
 register_sql(mcp)
+register_topics(mcp)
 
 
 if __name__ == "__main__":
