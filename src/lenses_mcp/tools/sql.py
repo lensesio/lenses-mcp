@@ -2,9 +2,6 @@ from typing import Any, Dict, List
 
 from clients.websocket_client import websocket_client
 from fastmcp import FastMCP
-from loguru import logger
-
-logger = logger.bind(name="LensesMCPSQLTool")
 
 """
 Registers all SQL-related tools (such as SQL execution) with the MCP server.

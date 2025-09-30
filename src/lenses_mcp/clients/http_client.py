@@ -2,9 +2,11 @@ from typing import Any, Dict, Optional
 
 import httpx
 from config import LENSES_API_HTTP_PORT, LENSES_API_HTTP_URL, LENSES_API_KEY
+from loguru import logger
+
+logger = logger.bind(name="HTTPClient")
 
 LENSES_API_HTTP_BASE_URL = f"{LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}"
-
 
 """HTTP client for Lenses API operations."""
 class LensesAPIClient:
@@ -54,9 +56,13 @@ class LensesAPIClient:
                 except Exception:
                     error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
                 
-                raise Exception(f"API request failed: {error_detail}")
+                error_message = f"API request failed: {error_detail}"
+                logger.error(error_message)
+                raise Exception(error_message)
             except httpx.RequestError as e:
-                raise Exception(f"Network error: {str(e)}")
+                error_message = f"Network error: {str(e)}"
+                logger.error(error_message)
+                raise Exception(error_message)
 
 
 api_client = LensesAPIClient(LENSES_API_HTTP_BASE_URL, LENSES_API_KEY)
