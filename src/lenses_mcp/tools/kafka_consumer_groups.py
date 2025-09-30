@@ -138,3 +138,11 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         """
         endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}"
         return await api_client._make_request("DELETE", endpoint)
+
+    @mcp.prompt()
+    def list_consumer_groups_for_topic(topic: str, environment: str) -> List[str]:
+        """List consumer groups for a specified topic in a specified environment"""
+        return f"""
+            Please list consumer groups for the '{topic}' topic in the '{environment}' environment
+            """
+    

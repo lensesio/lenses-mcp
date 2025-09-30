@@ -124,3 +124,10 @@ def register_environments(mcp: FastMCP):
                 }
         
         return health_status
+
+    @mcp.prompt()
+    def list_connected_environments() -> str:
+        """List all connected environments"""
+        return """
+            Please list all environments where 'Agent Connected' has a value of 'True'
+            """
