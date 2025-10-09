@@ -39,12 +39,40 @@ Create a Lenses API key by creating an [IAM Service Account](https://docs.lenses
 
 ## 4. Install Dependencies and Run the Server
 
-Use `uv` to create a virtual environment, install the project dependencies in it and then run the MCP server.
-
+Use `uv` to create a virtual environment, install the project dependencies in it and then run the MCP server with the FastMCP CLI using the default stdio transport.
 ```bash
 uv sync
-uv run fastmcp run src/lenses_mcp/server.py
+uv run src/lenses_mcp/server.py
 ```
+
+To run as a remote server, use the http transport.
+```bash
+uv run fastmcp run src/lenses_mcp/server.py --transport=http --port=8000
+```
+
+To run in Claude Desktop, Gemini CLI, Cursor, etc. use the following JSON configuration.
+```json
+{
+  "mcpServers": {
+    "Lenses.io": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project", "<ABSOLUTE_PATH_TO_THIS_REPO>",
+        "--with", "fastmcp",
+        "fastmcp",
+        "run",
+        "<ABSOLUTE_PATH_TO_THIS_REPO>/src/lenses_mcp/server.py"
+      ],
+      "env": {
+        "LENSES_API_KEY": "<YOUR_LENSES_API_KEY>"
+      },
+      "transport": "stdio"
+    }
+  }
+}
+```
+Note: Some clients may require the absolute path to `uv` in the command.
 
 ## 5. Optional Context7 MCP Server
 
