@@ -5,10 +5,7 @@ from config import (
     LENSES_API_HTTP_PORT,
     LENSES_API_HTTP_URL,
     LENSES_API_WEBSOCKET_PORT,
-    LENSES_API_WEBSOCKET_URL,
-    MCP_HOST,
-    MCP_PORT,
-    MCP_TRANSPORT,
+    LENSES_API_WEBSOCKET_URL
 )
 from fastmcp import FastMCP, settings
 from loguru import logger
@@ -33,13 +30,8 @@ register_topics(mcp)
 
 
 if __name__ == "__main__":
-    logger.info(f"Starting Lenses MCP Server: {MCP_HOST}:{MCP_PORT} with {MCP_TRANSPORT}")
+    logger.info(f"Starting Lenses MCP Server")
     logger.info(f"API base HTTP URL: {LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}")
     logger.info(f"API base WebSocket URL: {LENSES_API_WEBSOCKET_URL}:{LENSES_API_WEBSOCKET_PORT}")
-    logger.info(f"Tools count: {len(mcp.list_tools())}")
     
-    mcp.run(
-        transport=MCP_TRANSPORT,
-        host=MCP_HOST,
-        port=MCP_PORT
-    )
+    mcp.run()
