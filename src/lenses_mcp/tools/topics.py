@@ -221,6 +221,40 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/metadata/topics/{topic_name}"
         return await api_client._make_request("GET", endpoint)
 
+    @mcp.tool()
+    async def update_topic_metadata(
+        environment: str, 
+        metadata: Dict[str, str]
+    ) -> str:
+        """
+        Update topic metadata. The required parameters are: topicName, keyType and valueType.
+        
+        Args:
+            environment: The environment name.
+            topic_name: Name of the topic.
+            configs: Metadata key-value pairs with the following value types:
+                {
+                    "topicName": "text",
+                    "keyType": "text",
+                    "valueType": "text",
+                    "keySchema": "text",
+                    "keySchemaVersion": 1,
+                    "keySchemaInlined": "text",
+                    "valueSchema": "text",
+                    "valueSchemaVersion": 1,
+                    "valueSchemaInlined": "text",
+                    "description": "text",
+                    "tags": [
+                        "text"
+                    ],
+                    "additionalInfo": null
+                }
+        Returns:
+            Success message.
+        """
+        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/metadata/topics"
+        return await api_client._make_request("POST", endpoint, metadata)
+    
     # ========================
     # KAFKA DATASET OPERATIONS
     # ========================
