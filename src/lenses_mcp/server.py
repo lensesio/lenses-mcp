@@ -10,6 +10,7 @@ from config import (
 from fastmcp import FastMCP, settings
 from loguru import logger
 from tools.environments import register_environments
+from tools.kafka_connectors import register_kafka_connectors
 from tools.kafka_consumer_groups import register_kafka_consumer_groups
 from tools.sql import register_sql
 from tools.sql_processors import register_sql_processors
@@ -25,6 +26,7 @@ mcp = FastMCP("Lenses.io")
 
 # Register all Lenses tools modules
 register_environments(mcp)
+register_kafka_connectors(mcp)
 register_kafka_consumer_groups(mcp)
 register_sql(mcp)
 register_sql_processors(mcp)
