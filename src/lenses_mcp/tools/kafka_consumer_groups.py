@@ -4,7 +4,7 @@ from clients.http_client import api_client
 from fastmcp import FastMCP
 
 """
-Kafka Consumer Groups operations.
+Registers all Kafka consumer group operations with the MCP server.
 """
 def register_kafka_consumer_groups(mcp: FastMCP):
 
