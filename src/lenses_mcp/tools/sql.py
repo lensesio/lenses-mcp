@@ -4,7 +4,7 @@ from clients.websocket_client import websocket_client
 from fastmcp import FastMCP
 
 """
-Registers all SQL-related tools (such as SQL execution) with the MCP server.
+Registers all SQL-related operations (such as SQL execution) with the MCP server.
 """
 def register_sql(mcp: FastMCP):
 
@@ -23,16 +23,12 @@ def register_sql(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/ws/v2/sql/execute"
         return await websocket_client._make_request(endpoint=endpoint, sql=sql)
 
-    @mcp.prompt()
-    def fetch_latest_messages(environment: str, topic: str, limit: int = 5) -> str:
-        """Write a Lenses SQL query to fetch the latest messages in a topic"""
-        return f"""
-            Please write a SQL query that fetches the latest {limit} messages
-            in the '{topic}' topic in the '{environment}' environment.
-            """
+    # =======
+    # PROMPTS
+    # =======
 
     @mcp.prompt()
-    def generate_query_for_task(task: str) -> str:
+    def generate_sql_query_for_task(task: str) -> str:
         """Write a Lenses SQL query to achieve a task"""
         return f"""
             Task: {task}

@@ -4,7 +4,7 @@ from clients.http_client import api_client
 from fastmcp import FastMCP
 
 """
-Registers all environment-related tools with the MCP server.
+Registers all environment operations with the MCP server.
 """
 def register_environments(mcp: FastMCP):
 
@@ -124,6 +124,10 @@ def register_environments(mcp: FastMCP):
                 }
         
         return health_status
+
+    # =======
+    # PROMPTS
+    # =======
 
     @mcp.prompt()
     def list_connected_environments() -> str:

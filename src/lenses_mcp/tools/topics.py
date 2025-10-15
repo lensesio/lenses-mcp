@@ -4,7 +4,7 @@ from clients.http_client import api_client
 from fastmcp import FastMCP
 
 """
-Topics and datasets operations.
+Registers all topic and dataset operations with the MCP server.
 """
 def register_topics(mcp: FastMCP):
 
