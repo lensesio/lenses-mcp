@@ -224,10 +224,12 @@ def register_topics(mcp: FastMCP):
     @mcp.tool()
     async def update_topic_metadata(
         environment: str, 
-        metadata: Dict[str, str]
+        metadata: Dict[str, Any]
     ) -> str:
-        """
+        f"""
         Update topic metadata. The required parameters are: topicName, keyType and valueType.
+        When updating tags, it is not a list of strings. 
+        It is a list of objects with parameter 'name', e.g. [{{'name':'tag1'}},{{'name':'tag2'}}]
         
         Args:
             environment: The environment name.
@@ -245,7 +247,9 @@ def register_topics(mcp: FastMCP):
                     "valueSchemaInlined": "text",
                     "description": "text",
                     "tags": [
-                        "text"
+                        {{
+                            "name": "text"
+                        }}
                     ],
                     "additionalInfo": null
                 }
@@ -363,3 +367,26 @@ def register_topics(mcp: FastMCP):
         """
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/kafka/{entity_name}/messages/metrics"
         return await api_client._make_request("GET", endpoint)
+    
+    @mcp.tool()
+    async def update_dataset_topic_tags(
+        environment: str,
+        topic_name: str,
+        tags: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Update topic tags.
+        
+        Args:
+            environment: The environment name.
+            topic_name: Name of the topic.
+            tags: List of tag names.
+        Returns:
+            Success message.
+        """
+        tags_payload = {
+            "tags": [{"name": tag_name} for tag_name in tags]
+        }
+
+        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/kafka/{topic_name}/tags"
+        return await api_client._make_request("PUT", endpoint, tags_payload)

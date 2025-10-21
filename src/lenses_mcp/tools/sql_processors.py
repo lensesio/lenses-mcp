@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from clients.http_client import api_client
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 """
 Registers all SQL Processor operations with the MCP server.
@@ -58,7 +59,8 @@ def register_sql_processors(mcp: FastMCP):
             environment: The environment name.
             name: The name of the SQL processor.
             sql: The SQL query/statement for the processor.
-            deployment: Deployment configuration including details like replicas, cluster, namespace, etc. 
+            deployment: Deployment configuration including details like mode, runners, cluster, namespace, etc.
+                If there are no available deployment targets (Kubernetes or Connect clusters), use 'in process' mode: {{mode: "IN_PROC"}}
             sql_processor_id: Optional processor ID. If not provided, will be auto-generated.
             description: Optional description of the processor.
             tags: Optional list of tags for the processor.
@@ -81,7 +83,11 @@ def register_sql_processors(mcp: FastMCP):
             payload["tags"] = tags
         
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v2/streams"
-        return await api_client._make_request("POST", endpoint, payload)
+
+        try:
+            return await api_client._make_request("POST", endpoint, payload)
+        except Exception as e:
+            raise ToolError(f"SQL processor creation failed for reason: {e}")
 
     @mcp.tool()
     async def delete_sql_processor(environment: str, sql_processor_id: str) -> str:
@@ -160,7 +166,9 @@ def register_sql_processors(mcp: FastMCP):
             {sql}
             
             The processor should be configured with appropriate deployment settings.
-            Here is an example 'deployment': {{mode: "KUBERNETES", details: {{runners: 1, cluster: "incluster", namespace: "ai-agent"}}}}
+            Here is an example 'deployment' for Community Edition, which uses a local 'in process' mode: {{mode: "IN_PROC"}}
+            It should be used when there are no available deployment targets (Kubernetes or Connect clusters) in the environment.
+            Here is an example 'deployment' for Kubenetes: {{mode: "KUBERNETES", details: {{runners: 1, cluster: "incluster", namespace: "ai-agent"}}}}
             The settings can be determined for 'cluster' and 'namespace' with the get_deployment_targets tool call.
             """
 

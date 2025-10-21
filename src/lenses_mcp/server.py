@@ -22,7 +22,7 @@ settings.log_level = "INFO"
 settings.stateless_http = True
 
 
-mcp = FastMCP("Lenses.io")
+mcp = FastMCP("Lenses.io", mask_error_details=True)
 
 # Register all Lenses tools modules
 register_environments(mcp)
