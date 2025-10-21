@@ -52,7 +52,7 @@ class LensesAPIClient:
                 error_detail = "Unknown error"
                 try:
                     error_response = e.response.json()
-                    error_detail = error_response.get("title", f"HTTP {e.response.status_code}")
+                    error_detail = error_response.get("title", f"HTTP {e.response.status_code}: {e.response.text}")
                 except Exception:
                     error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
                 
