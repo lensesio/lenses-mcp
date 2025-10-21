@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from clients.http_client import api_client
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 """
 Registers all topic and dataset operations with the MCP server.
@@ -59,6 +60,44 @@ def register_topics(mcp: FastMCP):
     @mcp.tool()
     async def create_topic(
         environment: str,
+        topic_name: str,
+        partitions: int = 1,
+        replication: int = 1,
+        configs: Optional[Dict[str, str]] = None
+    ) -> str:
+        """
+        Creates a new Kafka topic with optional configuration.
+        
+        Args:
+            environment: The environment name.
+            topic_name: Topic name.
+            partitions: Number of partitions (default: 1).
+            replication: Replication factor (default: 1).
+            configs: Topic configurations.
+        
+        Returns:
+            Creation result.
+        """
+        payload = {
+            "topicName": topic_name,
+            "partitions": partitions,
+            "replication": replication
+        }
+        
+        if configs:
+            payload["configs"] = configs
+        else:
+            payload["configs"] = {}
+        
+        endpoint = f"/api/v1/environments/{environment}/proxy/api/topics"
+        try:
+            return await api_client._make_request("POST", endpoint, payload)
+        except Exception as e:
+            raise ToolError(f"Topic creation failed: {e}")
+    
+    @mcp.tool()
+    async def create_topic_with_schema(
+        environment: str,
         name: str,
         partitions: int = 1,
         replication: int = 1,
@@ -93,6 +132,8 @@ def register_topics(mcp: FastMCP):
         
         if configs:
             payload["configs"] = configs
+        else:
+            payload["configs"] = {}
         
         if key_format or value_format:
             format_config = {}
@@ -107,7 +148,10 @@ def register_topics(mcp: FastMCP):
             payload["format"] = format_config
         
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/kafka/topic"
-        return await api_client._make_request("POST", endpoint, payload)
+        try:
+            return await api_client._make_request("POST", endpoint, payload)
+        except Exception as e:
+            raise ToolError(f"Topic creation failed: {e}")
 
     @mcp.tool()
     async def update_topic_config(
