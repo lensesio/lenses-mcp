@@ -369,13 +369,35 @@ def register_topics(mcp: FastMCP):
         return await api_client._make_request("GET", endpoint)
     
     @mcp.tool()
+    async def update_dataset_topic_description(
+        environment: str,
+        topic_name: str,
+        description: str
+    ) -> Dict[str, Any]:
+        """
+        Update topic description (in metadata).
+        
+        Args:
+            environment: The environment name.
+            topic_name: Name of the topic.
+            description: The description of the topic.
+        Returns:
+            Success message.
+        """
+        description_payload = { "description": description }
+
+        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/kafka/{topic_name}/description"
+
+        return await api_client._make_request("PUT", endpoint, description_payload)
+    
+    @mcp.tool()
     async def update_dataset_topic_tags(
         environment: str,
         topic_name: str,
         tags: List[str]
     ) -> Dict[str, Any]:
         """
-        Update topic tags.
+        Update topic tags (in metadata).
         
         Args:
             environment: The environment name.
