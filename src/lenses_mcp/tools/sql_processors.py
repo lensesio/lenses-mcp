@@ -87,7 +87,7 @@ def register_sql_processors(mcp: FastMCP):
         try:
             return await api_client._make_request("POST", endpoint, payload)
         except Exception as e:
-            raise ToolError(f"SQL processor creation failed for reason: {e}")
+            raise ToolError(f"SQL processor creation failed: {e}")
 
     @mcp.tool()
     async def delete_sql_processor(environment: str, sql_processor_id: str) -> str:
