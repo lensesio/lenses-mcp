@@ -416,7 +416,7 @@ def register_topics(mcp: FastMCP):
     async def update_dataset_topic_description(
         environment: str,
         topic_name: str,
-        description: str
+        description: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Update topic description (in metadata).
@@ -428,7 +428,8 @@ def register_topics(mcp: FastMCP):
         Returns:
             Success message.
         """
-        description_payload = { "description": description }
+        # The description cannot be an empty string so if it is, replace with a null value
+        description_payload = { "description": description if description else None }
 
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/kafka/{topic_name}/description"
 

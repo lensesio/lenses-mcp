@@ -2,7 +2,7 @@
 
 This is the MCP (Model Context Protocol) server for [Lenses](https://lenses.io/), a self-service DataOps tool for engineers building real-time applications with different flavours of Apache Kafka across multiple clusters. Explore, transform and join data in topics from different clusters using SQL, without the need for an additional database. 
 
-Try this with the free [Lenses Community Edition](https://lenses.io/community-edition/) (restricted by number of users and enterprise features, e.g. OAuth).
+Try this with the free [Lenses Community Edition](https://lenses.io/community-edition/) (restricted by number of users and enterprise features, e.g. OAuth). *Requires Lenses v6+*.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Try this with the free [Lenses Community Edition](https://lenses.io/community-ed
 
 We use `uv` for dependency management and project setup. If you don't have `uv` installed, follow the [official installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 
-This project has been built using Python 3.12 and to make sure Python is correctly installed, run the following command to check the version.
+This project has been built using *Python 3.12* and to make sure Python is correctly installed, run the following command to check the version.
 
 ```bash
 uv run python --version
@@ -76,4 +76,4 @@ Note: Some clients may require the absolute path to `uv` in the command.
 
 ## 5. Optional Context7 MCP Server
 
-Lenses documentation is available on [Context7](https://context7.com/websites/lenses_io). Use the [Context7 MCP Server](https://github.com/upstash/context7) and adjust your prompts with `use context7` to ensure the documentation available to the LLM is up to date.
+Lenses documentation is available on [Context7](https://context7.com/websites/lenses_io). It is optional but highly recommended to use the [Context7 MCP Server](https://github.com/upstash/context7) and adjust your prompts with `use context7` to ensure the documentation available to the LLM is up to date.
