@@ -11,6 +11,7 @@ Try this with the free [Lenses Community Edition](https://lenses.io/community-ed
 - [3. Add Lenses API Key](#3-add-lenses-api-key)
 - [4. Install Dependencies and Run the Server](#4-install-dependencies-and-run-the-server)
 - [5. Optional Context7 MCP Server](#5-optional-context7-mcp-server)
+- [6. Running with Docker](#6-running-with-docker)
 
 
 ## 1. Install uv and Python
@@ -77,3 +78,70 @@ Note: Some clients may require the absolute path to `uv` in the command.
 ## 5. Optional Context7 MCP Server
 
 Lenses documentation is available on [Context7](https://context7.com/websites/lenses_io). It is optional but highly recommended to use the [Context7 MCP Server](https://github.com/upstash/context7) and adjust your prompts with `use context7` to ensure the documentation available to the LLM is up to date.
+
+## 6. Running with Docker
+
+The Lenses MCP server is available as a Docker image at `lensesio/mcp`. You can run it with different transport modes depending on your use case.
+
+### Quick Start
+
+Run the server with stdio transport (default):
+```bash
+docker run \
+   -e LENSES_API_KEY=<YOUR_API_KEY> \
+   -e LENSES_API_HTTP_URL=<LENSES_URL> \
+   -e LENSES_API_HTTP_PORT=<LENSES_PORT> \
+   -e LENSES_API_WEBSOCKET_URL=<LENSES_URL> \
+   -e LENSES_API_WEBSOCKET_PORT=<LENSES_PORT> \
+   lensesio/mcp
+```
+
+Run the server with HTTP transport (listens on `http://0.0.0.0:8000/mcp`):
+```bash
+docker run -p 8000:8000 \
+   -e LENSES_API_KEY=<YOUR_API_KEY> \
+   -e LENSES_API_HTTP_URL=<LENSES_URL> \
+   -e LENSES_API_HTTP_PORT=<LENSES_PORT> \
+   -e LENSES_API_WEBSOCKET_URL=<LENSES_URL> \
+   -e LENSES_API_WEBSOCKET_PORT=<LENSES_PORT> \
+   -e TRANSPORT=http \
+   lensesio/mcp
+```
+
+Run the server with SSE transport (listens on `http://0.0.0.0:8000/sse`):
+```bash
+docker run -p 8000:8000 \
+   -e LENSES_API_KEY=<YOUR_API_KEY> \
+   -e LENSES_API_HTTP_URL=<LENSES_URL> \
+   -e LENSES_API_HTTP_PORT=<LENSES_PORT> \
+   -e LENSES_API_WEBSOCKET_URL=<LENSES_URL> \
+   -e LENSES_API_WEBSOCKET_PORT=<LENSES_PORT> \
+   -e TRANSPORT=sse \
+   lensesio/mcp
+```
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LENSES_API_KEY` | Yes | - | Your Lenses API key (create via [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts)) |
+| `LENSES_API_HTTP_URL` | No | `http://localhost` | Lenses HTTP API URL |
+| `LENSES_API_HTTP_PORT` | No | `9991` | Lenses HTTP API port |
+| `LENSES_API_WEBSOCKET_URL` | No | `ws://localhost` | Lenses WebSocket API URL |
+| `LENSES_API_WEBSOCKET_PORT` | No | `9991` | Lenses WebSocket API port |
+| `TRANSPORT` | No | `stdio` | Transport mode: `stdio`, `http`, or `sse` |
+| `PORT` | No | `8000` | Port to listen on (only used with `http` or `sse` transport) |
+
+### Transport Endpoints
+
+- **stdio**: Standard input/output (no network endpoint)
+- **http**: HTTP endpoint at `/mcp`
+- **sse**: Server-Sent Events endpoint at `/sse`
+
+### Building the Docker Image
+
+To build the Docker image locally:
+
+```bash
+docker build -t lensesio/mcp .
+```
