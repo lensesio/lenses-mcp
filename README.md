@@ -89,10 +89,7 @@ Run the server with stdio transport (default):
 ```bash
 docker run \
    -e LENSES_API_KEY=<YOUR_API_KEY> \
-   -e LENSES_API_HTTP_URL=<LENSES_URL> \
-   -e LENSES_API_HTTP_PORT=<LENSES_PORT> \
-   -e LENSES_API_WEBSOCKET_URL=<LENSES_URL> \
-   -e LENSES_API_WEBSOCKET_PORT=<LENSES_PORT> \
+   -e LENSES_URL=http://localhost:9991 \
    lensesio/mcp
 ```
 
@@ -100,10 +97,7 @@ Run the server with HTTP transport (listens on `http://0.0.0.0:8000/mcp`):
 ```bash
 docker run -p 8000:8000 \
    -e LENSES_API_KEY=<YOUR_API_KEY> \
-   -e LENSES_API_HTTP_URL=<LENSES_URL> \
-   -e LENSES_API_HTTP_PORT=<LENSES_PORT> \
-   -e LENSES_API_WEBSOCKET_URL=<LENSES_URL> \
-   -e LENSES_API_WEBSOCKET_PORT=<LENSES_PORT> \
+   -e LENSES_URL=http://localhost:9991 \
    -e TRANSPORT=http \
    lensesio/mcp
 ```
@@ -112,10 +106,7 @@ Run the server with SSE transport (listens on `http://0.0.0.0:8000/sse`):
 ```bash
 docker run -p 8000:8000 \
    -e LENSES_API_KEY=<YOUR_API_KEY> \
-   -e LENSES_API_HTTP_URL=<LENSES_URL> \
-   -e LENSES_API_HTTP_PORT=<LENSES_PORT> \
-   -e LENSES_API_WEBSOCKET_URL=<LENSES_URL> \
-   -e LENSES_API_WEBSOCKET_PORT=<LENSES_PORT> \
+   -e LENSES_URL=http://localhost:9991 \
    -e TRANSPORT=sse \
    lensesio/mcp
 ```
@@ -125,12 +116,15 @@ docker run -p 8000:8000 \
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LENSES_API_KEY` | Yes | - | Your Lenses API key (create via [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts)) |
-| `LENSES_API_HTTP_URL` | No | `http://localhost` | Lenses HTTP API URL |
-| `LENSES_API_HTTP_PORT` | No | `9991` | Lenses HTTP API port |
-| `LENSES_API_WEBSOCKET_URL` | No | `ws://localhost` | Lenses WebSocket API URL |
-| `LENSES_API_WEBSOCKET_PORT` | No | `9991` | Lenses WebSocket API port |
+| `LENSES_URL` | No | `http://localhost:9991` | Lenses instance URL in format `[scheme]://[host]:[port]`. Use `https://` for secure connections (automatically uses `wss://` for WebSockets) |
 | `TRANSPORT` | No | `stdio` | Transport mode: `stdio`, `http`, or `sse` |
 | `PORT` | No | `8000` | Port to listen on (only used with `http` or `sse` transport) |
+
+**Legacy environment variables** (for backward compatibility):
+- `LENSES_API_HTTP_URL`, `LENSES_API_HTTP_PORT`
+- `LENSES_API_WEBSOCKET_URL`, `LENSES_API_WEBSOCKET_PORT`
+
+These are automatically derived from `LENSES_URL` but can be explicitly set to override.
 
 ### Transport Endpoints
 
