@@ -4,10 +4,14 @@ LABEL org.opencontainers.image.authors="Lenses.io Engineering <info@lenses.io>"
 LABEL org.opencontainers.image.ref.name="lensesio/mcp"
 LABEL org.opencontainers.image.vendor="Lenses.io"
 
-WORKDIR /app
-
 # Install uv for dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Create user to run the application
+RUN useradd -d /lenses-mcp -m -U -u 60000 lensesmcp \
+    && chmod 755 /lenses-mcp
+
+WORKDIR /lenses-mcp
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -31,6 +35,8 @@ ENV TRANSPORT=stdio
 # Expose port for HTTP transport
 ENV PORT=8000
 EXPOSE 8000
+
+USER lensesmcp
 
 # Default command runs the MCP server with configurable transport
 # For stdio: only --transport is used
