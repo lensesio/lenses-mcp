@@ -1,7 +1,6 @@
-from typing import Any, Dict, List
-
 from clients.websocket_client import websocket_client
 from fastmcp import FastMCP
+from models.sql import ExecuteSQLInput, ExecuteSQLOutput
 
 """
 Registers all SQL-related operations (such as SQL execution) with the MCP server.
@@ -9,19 +8,19 @@ Registers all SQL-related operations (such as SQL execution) with the MCP server
 def register_sql(mcp: FastMCP):
 
     @mcp.tool()
-    async def execute_sql(environment: str, sql: str) -> List[Dict[str, Any]]:
+    async def execute_sql(input: ExecuteSQLInput) -> ExecuteSQLOutput:
         """
         Executes SQL statements/queries using Lenses WebSocket API.
 
         Args:
-            environment: The environment name.
-            sql: The SQL statement/query to execute.
+            input: The input containing environment name and SQL query to execute.
         
         Returns:
-            A list of MessageRecord objects representing the result of the SQL query.
+            ExecuteSQLOutput containing a list of MessageRecord objects representing the result of the SQL query.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/ws/v2/sql/execute"
-        return await websocket_client._make_request(endpoint=endpoint, sql=sql)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/ws/v2/sql/execute"
+        results = await websocket_client._make_request(endpoint=endpoint, sql=input.sql)
+        return ExecuteSQLOutput(results=results)
 
     # =======
     # PROMPTS

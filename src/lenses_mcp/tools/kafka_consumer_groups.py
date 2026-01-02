@@ -1,7 +1,23 @@
-from typing import Any, Dict, List
+from typing import List
 
 from clients.http_client import api_client
 from fastmcp import FastMCP
+from models.kafka_consumer_groups import (
+    DeleteConsumerGroupInput,
+    DeleteConsumerGroupOffsetsInput,
+    DeleteConsumerGroupOffsetsOutput,
+    DeleteConsumerGroupOutput,
+    DeleteConsumerGroupTopicPartitionOffsetInput,
+    DeleteConsumerGroupTopicPartitionOffsetOutput,
+    ListConsumerGroupsByTopicInput,
+    ListConsumerGroupsByTopicOutput,
+    ListConsumerGroupsInput,
+    ListConsumerGroupsOutput,
+    UpdateConsumerGroupOffsetsInput,
+    UpdateConsumerGroupOffsetsOutput,
+    UpdateConsumerGroupTopicPartitionOffsetInput,
+    UpdateConsumerGroupTopicPartitionOffsetOutput,
+)
 
 """
 Registers all Kafka consumer group operations with the MCP server.
@@ -9,135 +25,120 @@ Registers all Kafka consumer group operations with the MCP server.
 def register_kafka_consumer_groups(mcp: FastMCP):
 
     @mcp.tool()
-    async def list_consumer_groups(environment: str) -> List[Dict[str, Any]]:
+    async def list_consumer_groups(input: ListConsumerGroupsInput) -> ListConsumerGroupsOutput:
         """
         Retrieve a list of all Kafka consumer groups.
         
         Args:
-            environment: The environment name.
+            input: The input containing the environment name.
         
         Returns:
-            A list of consumer group objects.
+            ListConsumerGroupsOutput containing a list of consumer group objects.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers"
-        return await api_client._make_request("GET", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers"
+        result = await api_client._make_request("GET", endpoint)
+        return ListConsumerGroupsOutput(items=result)
 
     @mcp.tool()
-    async def list_consumer_groups_by_topic(environment: str, topic: str) -> List[Dict[str, Any]]:
+    async def list_consumer_groups_by_topic(
+        input: ListConsumerGroupsByTopicInput
+    ) -> ListConsumerGroupsByTopicOutput:
         """
         Retrieve a list of consumer groups by a specific topic.
         
         Args:
-            environment: The environment name.
-            topic: The name of the topic.
+            input: The input containing environment name and topic name.
         
         Returns:
-            A list of consumer group objects.
+            ListConsumerGroupsByTopicOutput containing a list of consumer group objects.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{topic}"
-        return await api_client._make_request("GET", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers/{input.topic}"
+        result = await api_client._make_request("GET", endpoint)
+        return ListConsumerGroupsByTopicOutput(items=result)
 
     @mcp.tool()
     async def update_consumer_group_offsets(
-        environment: str, 
-        group_id: str, 
-        offsets: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        input: UpdateConsumerGroupOffsetsInput
+    ) -> UpdateConsumerGroupOffsetsOutput:
         """
         Update the offset for a consumer group topic-partition tuples.
         
         Args:
-            environment: The environment name.
-            group_id: The ID of the consumer group.
-            offsets: A list of topic-partition offset objects.
+            input: The input containing environment name, group ID, and offset list.
         
         Returns:
-            The result of the update operation.
+            UpdateConsumerGroupOffsetsOutput containing the result of the update operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}/offsets"
-        return await api_client._make_request("PUT", endpoint, json=offsets)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers/{input.group_id}/offsets"
+        result = await api_client._make_request("PUT", endpoint, json=input.offsets)
+        return UpdateConsumerGroupOffsetsOutput(result=result)
 
     @mcp.tool()
     async def delete_consumer_group_offsets(
-        environment: str, 
-        group_id: str, 
-        offsets: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        input: DeleteConsumerGroupOffsetsInput
+    ) -> DeleteConsumerGroupOffsetsOutput:
         """
         Delete offsets for a consumer group topic-partition tuples.
         
         Args:
-            environment: The environment name.
-            group_id: The ID of the consumer group.
-            offsets: A list of topic-partition objects.
+            input: The input containing environment name, group ID, and offset list.
         
         Returns:
-            The result of the delete operation.
+            DeleteConsumerGroupOffsetsOutput containing the result of the delete operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}/offsets/delete"
-        return await api_client._make_request("POST", endpoint, json=offsets)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers/{input.group_id}/offsets/delete"
+        result = await api_client._make_request("POST", endpoint, json=input.offsets)
+        return DeleteConsumerGroupOffsetsOutput(result=result)
 
     @mcp.tool()
     async def update_consumer_group_topic_partition_offset(
-        environment: str, 
-        group_id: str, 
-        topic: str, 
-        partition: int, 
-        offset: int
-    ) -> Dict[str, Any]:
+        input: UpdateConsumerGroupTopicPartitionOffsetInput
+    ) -> UpdateConsumerGroupTopicPartitionOffsetOutput:
         """
         Update the offset for a topic-partition for a given group.
         
         Args:
-            environment: The environment name.
-            group_id: The ID of the consumer group.
-            topic: The topic name.
-            partition: The partition number.
-            offset: The new offset value.
+            input: The input containing environment name, group ID, topic, partition, and offset.
         
         Returns:
-            The result of the update operation.
+            UpdateConsumerGroupTopicPartitionOffsetOutput containing the result of the update operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}/offsets/topics/{topic}/partitions/{partition}"
-        payload = {"offset": offset}
-        return await api_client._make_request("PUT", endpoint, json=payload)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers/{input.group_id}/offsets/topics/{input.topic}/partitions/{input.partition}"
+        payload = {"offset": input.offset}
+        result = await api_client._make_request("PUT", endpoint, json=payload)
+        return UpdateConsumerGroupTopicPartitionOffsetOutput(result=result)
 
     @mcp.tool()
     async def delete_consumer_group_topic_partition_offset(
-        environment: str, 
-        group_id: str, 
-        topic: str, 
-        partition: int
-    ) -> Dict[str, Any]:
+        input: DeleteConsumerGroupTopicPartitionOffsetInput
+    ) -> DeleteConsumerGroupTopicPartitionOffsetOutput:
         """
         Delete the offset for a topic-partition for a given group.
         
         Args:
-            environment: The environment name.
-            group_id: The ID of the consumer group.
-            topic: The topic name.
-            partition: The partition number.
+            input: The input containing environment name, group ID, topic, and partition.
         
         Returns:
-            The result of the delete operation.
+            DeleteConsumerGroupTopicPartitionOffsetOutput containing the result of the delete operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}/topics/{topic}/partitions/{partition}/offsets"
-        return await api_client._make_request("DELETE", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers/{input.group_id}/topics/{input.topic}/partitions/{input.partition}/offsets"
+        result = await api_client._make_request("DELETE", endpoint)
+        return DeleteConsumerGroupTopicPartitionOffsetOutput(result=result)
 
     @mcp.tool()
-    async def delete_consumer_group(environment: str, group_id: str) -> Dict[str, Any]:
+    async def delete_consumer_group(input: DeleteConsumerGroupInput) -> DeleteConsumerGroupOutput:
         """
         Delete a consumer group.
         
         Args:
-            environment: The environment name.
-            group_id: The ID of the consumer group to delete.
+            input: The input containing environment name and group ID.
         
         Returns:
-            The result of the delete operation.
+            DeleteConsumerGroupOutput containing the result of the delete operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}"
-        return await api_client._make_request("DELETE", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/consumers/{input.group_id}"
+        result = await api_client._make_request("DELETE", endpoint)
+        return DeleteConsumerGroupOutput(result=result)
 
     @mcp.prompt()
     def list_consumer_groups_for_topic(topic: str, environment: str) -> List[str]:

@@ -1,7 +1,21 @@
-from typing import Any, Dict, List, Optional
-
 from clients.http_client import api_client
 from fastmcp import FastMCP
+from models.kafka_connectors import (
+    CreateKafkaConnectorInput,
+    CreateKafkaConnectorOutput,
+    DeleteKafkaConnectorInput,
+    DeleteKafkaConnectorOutput,
+    GetKafkaConnectorTargetDefinitionInput,
+    GetKafkaConnectorTargetDefinitionOutput,
+    ListKafkaConnectorsInput,
+    ListKafkaConnectorsOutput,
+    RestartKafkaConnectorTaskInput,
+    RestartKafkaConnectorTaskOutput,
+    SetActionOnKafkaConnectorInput,
+    SetActionOnKafkaConnectorOutput,
+    ValidateConnectorConfigurationInput,
+    ValidateConnectorConfigurationOutput,
+)
 
 """
 Registers all Kafka Connector operations with the MCP server.
@@ -13,27 +27,21 @@ def register_kafka_connectors(mcp: FastMCP):
     # ==========================
 
     @mcp.tool()
-    async def list_kafka_connectors(
-        environment: str,
-        cluster: Optional[List[str]] = None,
-        class_name: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+    async def list_kafka_connectors(input: ListKafkaConnectorsInput) -> ListKafkaConnectorsOutput:
         """
         Retrieves a list of all Kafka connectors.
         
         Args:
-            environment: The environment name.
-            cluster: Optional list of cluster names to filter by.
-            class_name: Optional list of connector class names to filter by.
+            input: The input containing environment name and optional cluster/class filters.
         
         Returns:
-            A dictionary containing a list of all connectors with their details.
+            ListKafkaConnectorsOutput containing all connectors with their details.
         """
         params = {}
-        if cluster:
-            params["cluster"] = cluster
-        if class_name:
-            params["className"] = class_name
+        if input.cluster:
+            params["cluster"] = input.cluster
+        if input.class_name:
+            params["className"] = input.class_name
         
         # Build query string
         query_params = []
@@ -45,155 +53,123 @@ def register_kafka_connectors(mcp: FastMCP):
                 query_params.append(f"{key}={value}")
         
         query_string = "&".join(query_params) if query_params else ""
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/connectors"
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/kafka-connect/connectors"
         if query_string:
             endpoint += f"?{query_string}"
         
-        return await api_client._make_request("GET", endpoint)
+        result = await api_client._make_request("GET", endpoint)
+        return ListKafkaConnectorsOutput(item=result)
 
     @mcp.tool()
     async def get_kafka_connector_target_definition(
-        environment: str, 
-        connect_cluster_name: str, 
-        connector_name: str
-    ) -> str:
+        input: GetKafkaConnectorTargetDefinitionInput
+    ) -> GetKafkaConnectorTargetDefinitionOutput:
         """
         Fetches the current target definition for a Kafka connector.
         
         Args:
-            environment: The environment name.
-            connect_cluster_name: The connect cluster name.
-            connector_name: The connector name.
+            input: The input containing environment name, connect cluster name, and connector name.
         
         Returns:
-            The connector definition as a YAML string.
+            GetKafkaConnectorTargetDefinitionOutput containing the connector definition as a YAML string.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/resource/kafka/connect/{connect_cluster_name}/connector/{connector_name}"
-        return await api_client._make_request("GET", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/v1/resource/kafka/connect/{input.connect_cluster_name}/connector/{input.connector_name}"
+        result = await api_client._make_request("GET", endpoint)
+        return GetKafkaConnectorTargetDefinitionOutput(result=str(result))
 
     @mcp.tool()
-    async def create_kafka_connector(
-        environment: str,
-        name: str,
-        cluster: str,
-        configuration: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def create_kafka_connector(input: CreateKafkaConnectorInput) -> CreateKafkaConnectorOutput:
         """
         Creates a new Kafka connector.
         
         Args:
-            environment: The environment name.
-            name: The name of the connector.
-            cluster: The cluster name where the connector will be deployed.
-            configuration: The connector configuration as a dictionary.
+            input: The input containing environment name, connector name, cluster, and configuration.
         
         Returns:
-            The created connector object.
+            CreateKafkaConnectorOutput containing the created connector object.
         """
         payload = {
-            "name": name,
-            "cluster": cluster,
-            "configuration": configuration
+            "name": input.name,
+            "cluster": input.cluster,
+            "configuration": input.configuration
         }
         
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/connectors"
-        return await api_client._make_request("POST", endpoint, payload)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/kafka-connect/connectors"
+        result = await api_client._make_request("POST", endpoint, payload)
+        return CreateKafkaConnectorOutput(result=result)
 
     @mcp.tool()
     async def set_action_on_kafka_connector(
-        environment: str,
-        cluster: str,
-        connector: str,
-        action: str
-    ) -> Dict[str, Any]:
+        input: SetActionOnKafkaConnectorInput
+    ) -> SetActionOnKafkaConnectorOutput:
         """
         Controls a Kafka connector (start, stop, restart, pause, resume).
         
         Args:
-            environment: The environment name.
-            cluster: The cluster name.
-            connector: The connector name.
-            action: The action to perform. Options: "start", "stop", "restart", "pause", "resume".
+            input: The input containing environment name, cluster, connector name, and action.
         
         Returns:
-            The result of the control operation.
+            SetActionOnKafkaConnectorOutput containing the result of the control operation.
         """
-        valid_actions = ["start", "stop", "restart", "pause", "resume"]
-        if action not in valid_actions:
-            raise ValueError(f"Action must be one of: {', '.join(valid_actions)}")
-        
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/clusters/{cluster}/connectors/{connector}/{action}"
-        return await api_client._make_request("PUT", endpoint)
+        # Action is already validated by Pydantic Literal type
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/kafka-connect/clusters/{input.cluster}/connectors/{input.connector}/{input.action}"
+        result = await api_client._make_request("PUT", endpoint)
+        return SetActionOnKafkaConnectorOutput(result=result)
 
     @mcp.tool()
     async def restart_kafka_connector_task(
-        environment: str,
-        cluster: str,
-        connector: str,
-        task_id: int
-    ) -> Dict[str, Any]:
+        input: RestartKafkaConnectorTaskInput
+    ) -> RestartKafkaConnectorTaskOutput:
         """
         Restarts a specific task of a Kafka connector.
         
         Args:
-            environment: The environment name.
-            cluster: The cluster name.
-            connector: The connector name.
-            task_id: The task ID to restart.
+            input: The input containing environment name, cluster, connector name, and task ID.
         
         Returns:
-            The result of the task restart operation.
+            RestartKafkaConnectorTaskOutput containing the result of the task restart operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/clusters/{cluster}/connectors/{connector}/tasks/{task_id}/restart"
-        return await api_client._make_request("PUT", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/kafka-connect/clusters/{input.cluster}/connectors/{input.connector}/tasks/{input.task_id}/restart"
+        result = await api_client._make_request("PUT", endpoint)
+        return RestartKafkaConnectorTaskOutput(result=result)
 
     @mcp.tool()
-    async def delete_kafka_connector(
-        environment: str,
-        cluster: str,
-        connector: str
-    ) -> Dict[str, Any]:
+    async def delete_kafka_connector(input: DeleteKafkaConnectorInput) -> DeleteKafkaConnectorOutput:
         """
         Deletes a Kafka connector.
         
         Args:
-            environment: The environment name.
-            cluster: The cluster name.
-            connector: The connector name.
+            input: The input containing environment name, cluster, and connector name.
         
         Returns:
-            The result of the delete operation.
+            DeleteKafkaConnectorOutput containing the result of the delete operation.
         """
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/clusters/{cluster}/connectors/{connector}"
-        return await api_client._make_request("DELETE", endpoint)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/kafka-connect/clusters/{input.cluster}/connectors/{input.connector}"
+        result = await api_client._make_request("DELETE", endpoint)
+        return DeleteKafkaConnectorOutput(result=result)
 
     @mcp.tool()
     async def validate_connector_configuration(
-        environment: str,
-        name: str,
-        cluster: str,
-        configuration: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        input: ValidateConnectorConfigurationInput
+    ) -> ValidateConnectorConfigurationOutput:
         """
         Validates a Kafka connector configuration.
         
         Args:
-            environment: The environment name.
-            name: The name of the connector.
-            cluster: The cluster name.
-            configuration: The connector configuration to validate.
+            input: The input containing environment name, connector name, cluster, and configuration.
         
         Returns:
-            Validation results including configuration details and any errors.
+            ValidateConnectorConfigurationOutput containing validation results and any errors.
         """
         payload = {
-            "name": name,
-            "cluster": cluster,
-            "configuration": configuration
+            "name": input.name,
+            "cluster": input.cluster,
+            "configuration": input.configuration
         }
         
-        endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/validate"
-        return await api_client._make_request("POST", endpoint, payload)
+        endpoint = f"/api/v1/environments/{input.environment}/proxy/api/kafka-connect/validate"
+        result = await api_client._make_request("POST", endpoint, payload)
+        return ValidateConnectorConfigurationOutput(result=result)
 
     # =======
     # PROMPTS
