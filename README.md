@@ -4,9 +4,9 @@ This is the [Lenses](https://lenses.io/) MCP (Model Context Protocol) server for
 
 With Lenses, you can find, explore, transform, integrate and replicate data across a multi-Kafka and vendor estate. Now, all this power is accessible through your AI Assistant or Agent via this Lenses MCP Server for Kafka.
 
-[See it in action](https://www.youtube.com/watch?v=m8bSLyRnMAk) whilst walking through the streets of New York city!
+[See it explained and in action](https://www.youtube.com/watch?v=m8bSLyRnMAk) whilst walking through the streets of New York city!
 
-Try it today with the free [Lenses Community Edition](https://lenses.io/community-edition/) (restricted by number of users and enterprise features, e.g. OAuth). Lenses CE comes with a pre-configured single-broker Kafka cluster, ideal for localhost development or for a demo. But feel free to connect to up to two of your own Kafka clusters and then talk-away to your Kafka and streaming data. 
+Try it today with the free [Lenses Community Edition](https://lenses.io/community-edition/) (restricted by number of users and enterprise features). Lenses CE comes with a pre-configured single broker Kafka cluster, ideal for local development or demonstration. Connect up to two of your own Kafka clusters and then use natural language to interact with your streaming data. 
 
 ## Table of Contents
 
