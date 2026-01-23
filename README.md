@@ -1,8 +1,8 @@
 # 🌊🔍 Lenses MCP Server for Apache Kafka 🔎🌊
 
-This is the [Lenses](https://lenses.io/) MCP (Model Context Protocol) server for Apache Kafka. Lenses offers a developer experience solution for engineers building real-time applications connected to Kafka. It's build for the enterprise and backed by a powerful IAM and governance model. 
+This is the [Lenses](https://lenses.io/) MCP (Model Context Protocol) server for Apache Kafka. Lenses offers a developer experience solution for engineers building real-time applications connected to Kafka. It's built for the enterprise and backed by a powerful IAM and governance model. 
 
-With Lenses, you can find, explore, transform, integrate and replicate data across a mulit-Kafka and vendor estate. Now, all this power is accessible through your AI Assistant or Agent via this Lenses MCP Server for Kafka.
+With Lenses, you can find, explore, transform, integrate and replicate data across a multi-Kafka and vendor estate. Now, all this power is accessible through your AI Assistant or Agent via this Lenses MCP Server for Kafka.
 
 [See it in action](https://www.youtube.com/watch?v=m8bSLyRnMAk) whilst walking through the streets of New York city!
 
