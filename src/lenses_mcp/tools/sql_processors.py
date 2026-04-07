@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from clients.http_client import api_client
 from fastmcp import FastMCP
@@ -7,6 +7,8 @@ from fastmcp.exceptions import ToolError
 """
 Registers all SQL Processor operations with the MCP server.
 """
+
+
 def register_sql_processors(mcp: FastMCP):
 
     # ========================
@@ -14,13 +16,13 @@ def register_sql_processors(mcp: FastMCP):
     # ========================
 
     @mcp.tool()
-    async def list_sql_processors(environment: str) -> Dict[str, Any]:
+    async def list_sql_processors(environment: str) -> dict[str, Any]:
         """
         Retrieves all SQL processor details.
-        
+
         Args:
             environment: The environment name.
-        
+
         Returns:
             A dictionary containing a list of all SQL processors with their details.
         """
@@ -28,14 +30,14 @@ def register_sql_processors(mcp: FastMCP):
         return await api_client._make_request("GET", endpoint)
 
     @mcp.tool()
-    async def get_sql_processor(environment: str, sql_processor_id: str) -> Dict[str, Any]:
+    async def get_sql_processor(environment: str, sql_processor_id: str) -> dict[str, Any]:
         """
         Retrieves a single SQL processor by ID.
-        
+
         Args:
             environment: The environment name.
             sql_processor_id: SQL processor unique identifier.
-        
+
         Returns:
             Detailed SQL processor information including application, metadata, and deployment status.
         """
@@ -47,32 +49,29 @@ def register_sql_processors(mcp: FastMCP):
         environment: str,
         name: str,
         sql: str,
-        deployment: Dict[str, Any] = None,
-        sql_processor_id: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        deployment: dict[str, Any] | None = None,
+        sql_processor_id: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Creates a new SQL processor.
-        
+
         Args:
             environment: The environment name.
             name: The name of the SQL processor.
             sql: The SQL query/statement for the processor.
-            deployment: Deployment configuration including details like mode, runners, cluster, namespace, etc.
-                If there are no available deployment targets (Kubernetes or Connect clusters), use 'in process' mode: {{mode: "IN_PROC"}}
+            deployment: Deployment configuration (mode, runners, cluster, namespace).
+                Use 'in process' mode when no deployment targets exist: {{mode: "IN_PROC"}}
             sql_processor_id: Optional processor ID. If not provided, will be auto-generated.
             description: Optional description of the processor.
             tags: Optional list of tags for the processor.
-        
+
         Returns:
             The created SQL processor object with its ID.
         """
-        payload = {
-            "name": name,
-            "sql": sql
-        }
-        
+        payload = {"name": name, "sql": sql}
+
         if sql_processor_id:
             payload["processorId"] = sql_processor_id
         if description:
@@ -81,23 +80,23 @@ def register_sql_processors(mcp: FastMCP):
             payload["deployment"] = deployment
         if tags:
             payload["tags"] = tags
-        
+
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v2/streams"
 
         try:
             return await api_client._make_request("POST", endpoint, payload)
         except Exception as e:
-            raise ToolError(f"SQL processor creation failed: {e}")
+            raise ToolError(f"SQL processor creation failed: {e}") from e
 
     @mcp.tool()
     async def delete_sql_processor(environment: str, sql_processor_id: str) -> str:
         """
         Removes an existing SQL processor.
-        
+
         Args:
             environment: The environment name.
             sql_processor_id: SQL processor unique identifier.
-        
+
         Returns:
             Success message confirming the deletion.
         """
@@ -109,13 +108,13 @@ def register_sql_processors(mcp: FastMCP):
     # =====================
 
     @mcp.tool()
-    async def get_deployment_targets(environment: str) -> Dict[str, Any]:
+    async def get_deployment_targets(environment: str) -> dict[str, Any]:
         """
         Returns deployment information including available Kubernetes clusters and Connect clusters.
-        
+
         Args:
             environment: The environment name.
-        
+
         Returns:
             Dictionary containing available deployment targets (Kubernetes clusters and Connect clusters).
         """
@@ -123,21 +122,16 @@ def register_sql_processors(mcp: FastMCP):
         return await api_client._make_request("GET", endpoint)
 
     @mcp.tool()
-    async def get_pod_logs(
-        environment: str, 
-        cluster: str, 
-        namespace: str, 
-        pod: str
-    ) -> str:
+    async def get_pod_logs(environment: str, cluster: str, namespace: str, pod: str) -> str:
         """
         Returns the logs produced by a running Kubernetes Pod.
-        
+
         Args:
             environment: The environment name.
             cluster: Pod's cluster name.
             namespace: Pod's namespace.
             pod: Pod's name.
-        
+
         Returns:
             The logs content as a string.
         """
@@ -162,14 +156,15 @@ def register_sql_processors(mcp: FastMCP):
         return f"""
             Please create a SQL processor named '{name}' in the '{environment}' environment
             with the following SQL query:
-            
+
             {sql}
-            
+
             The processor should be configured with appropriate deployment settings.
-            Here is an example 'deployment' for Community Edition, which uses a local 'in process' mode: {{mode: "IN_PROC"}}
-            It should be used when there are no available deployment targets (Kubernetes or Connect clusters) in the environment.
-            Here is an example 'deployment' for Kubenetes: {{mode: "KUBERNETES", details: {{runners: 1, cluster: "incluster", namespace: "ai-agent"}}}}
-            The settings can be determined for 'cluster' and 'namespace' with the get_deployment_targets tool call.
+            Example 'deployment' for Community Edition (in process mode): {{mode: "IN_PROC"}}
+            Use when no deployment targets (Kubernetes or Connect clusters) are available.
+            Example for Kubernetes: {{mode: "KUBERNETES",
+            details: {{runners: 1, cluster: "incluster", namespace: "ai-agent"}}}}
+            Use get_deployment_targets to determine 'cluster' and 'namespace'.
             """
 
     @mcp.prompt()

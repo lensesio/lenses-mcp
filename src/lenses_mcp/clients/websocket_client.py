@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 import websockets
 from config import (
@@ -14,29 +14,21 @@ logger = logger.bind(name="WebSocketClient")
 LENSES_API_WEBSOCKET_BASE_URL = f"{LENSES_API_WEBSOCKET_URL}:{LENSES_API_WEBSOCKET_PORT}"
 
 """WebSocket client for Lenses API operations."""
-class LensesWebSocketClient:
 
+
+class LensesWebSocketClient:
     def __init__(self, base_url: str, bearer_token: str):
         self.base_url = base_url.rstrip("/")
-        self.headers = {
-            "Authorization": f"Bearer {bearer_token}"
-        }
-    
-    async def _make_request(
-        self,
-        endpoint: str,
-        sql: str
-    ) -> List[Dict[str, Any]]:
+        self.headers = {"Authorization": f"Bearer {bearer_token}"}
+
+    async def _make_request(self, endpoint: str, sql: str) -> list[dict[str, Any]]:
         uri = f"{self.base_url}{endpoint}"
 
         try:
-            async with websockets.connect(
-                uri=uri,
-                additional_headers=self.headers
-            ) as ws:
+            async with websockets.connect(uri=uri, additional_headers=self.headers) as ws:
                 records = []
                 await ws.send(json.dumps({"sql": sql}))
-                
+
                 while True:
                     response = await ws.recv()
                     logger.info(f"Message received: {response}")
@@ -50,7 +42,7 @@ class LensesWebSocketClient:
 
                             if not data_:
                                 return
-                            
+
                             records.append(data_)
                             logger.info(f"Record appended: {data_}")
                         case "END":

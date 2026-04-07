@@ -1,12 +1,8 @@
 """
 Lenses MCP Server for interacting with Lenses HQ.
 """
-from config import (
-    LENSES_API_HTTP_PORT,
-    LENSES_API_HTTP_URL,
-    LENSES_API_WEBSOCKET_PORT,
-    LENSES_API_WEBSOCKET_URL
-)
+
+from config import LENSES_API_HTTP_PORT, LENSES_API_HTTP_URL, LENSES_API_WEBSOCKET_PORT, LENSES_API_WEBSOCKET_URL
 from fastmcp import FastMCP, settings
 from loguru import logger
 from tools.environments import register_environments
@@ -37,5 +33,5 @@ if __name__ == "__main__":
     logger.info("Starting Lenses MCP Server")
     logger.info(f"API base HTTP URL: {LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}")
     logger.info(f"API base WebSocket URL: {LENSES_API_WEBSOCKET_URL}:{LENSES_API_WEBSOCKET_PORT}")
-    
+
     mcp.run()

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from clients.websocket_client import websocket_client
 from fastmcp import FastMCP
@@ -6,17 +6,19 @@ from fastmcp import FastMCP
 """
 Registers all SQL-related operations (such as SQL execution) with the MCP server.
 """
+
+
 def register_sql(mcp: FastMCP):
 
     @mcp.tool()
-    async def execute_sql(environment: str, sql: str) -> List[Dict[str, Any]]:
+    async def execute_sql(environment: str, sql: str) -> list[dict[str, Any]]:
         """
         Executes SQL statements/queries using Lenses WebSocket API.
 
         Args:
             environment: The environment name.
             sql: The SQL statement/query to execute.
-        
+
         Returns:
             A list of MessageRecord objects representing the result of the SQL query.
         """

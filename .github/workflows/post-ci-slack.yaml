@@ -1,0 +1,72 @@
+# Slack notification when CI completes (success or failure).
+
+name: Post-CI Slack Message
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types:
+      - completed
+
+jobs:
+  notify:
+    name: Send Slack message on completion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Collect commit info
+        id: info
+        run: |
+          echo "sha=$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
+          echo "br=$(git rev-parse --abbrev-ref HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Slack Notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ github.event.workflow_run.conclusion == 'success' && '✅ CI Passed' || '❌ CI Failed' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:* `${{ steps.info.outputs.sha }}` on `${{ steps.info.outputs.br }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Triggered by:* ${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Status:* ${{ github.event.workflow_run.conclusion }}"
+                  },
+                  "accessory": {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "View Run"
+                    },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}"
+                  }
+                }
+              ]
+            }

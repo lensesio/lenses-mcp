@@ -5,8 +5,80 @@ description = "Lenses.io"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp==2.12.0",
+    "fastmcp==2.14.5",
     "loguru>=0.7.3",
     "typing-extensions>=4.15.0",
     "websockets>=15.0.1",
+]
+
+[dependency-groups]
+dev = [
+    # Testing
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.5",
+    "httpx>=0.27",
+
+    # Linting & formatting
+    "ruff>=0.9",
+
+    # Type checking
+    "mypy>=1.14",
+
+    # Security & compliance
+    "pip-audit>=2.10",
+    "pip-licenses>=5.5",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific rules
+    "S",    # flake8-bandit (security)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]  # Allow assert in tests
+
+[tool.ruff.lint.isort]
+known-first-party = ["lenses_mcp"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--timeout=60"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "pass",
 ]

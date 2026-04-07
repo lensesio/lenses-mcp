@@ -15,11 +15,7 @@ scheme = parsed_url.scheme or "http"
 hostname = parsed_url.hostname or "localhost"
 
 # Determine port: use explicit port, or default based on scheme
-if parsed_url.port:
-    port = str(parsed_url.port)
-else:
-    # Use standard ports: 80 for http, 443 for https, or 9991 as fallback
-    port = "443" if scheme == "https" else "80" if scheme == "http" else "9991"
+port = str(parsed_url.port) if parsed_url.port else "443" if scheme == "https" else "80" if scheme == "http" else "9991"
 
 # Derive HTTP and WebSocket URLs from LENSES_URL
 # If scheme is https, use wss for websockets; otherwise use ws

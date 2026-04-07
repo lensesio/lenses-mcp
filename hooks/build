@@ -8,7 +8,7 @@ export BUILD_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 echo "BUILD_TIME: ${BUILD_TIME}"
 echo "DOCKER_REPO: ${DOCKER_REPO}"
 
-VERSION=$(grep version pyproject.toml | sed -re 's/.*"(.*)".*/\1/')
+VERSION=$(grep ^version pyproject.toml | sed -re 's/.*"(.*)".*/\1/')
 MINOR_VERSION=$(echo $VERSION | sed -re 's/([0-9]+\.[0-9]+)\..*/\1/')
 
 # Build and push the images

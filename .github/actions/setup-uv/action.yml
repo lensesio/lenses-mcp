@@ -1,0 +1,33 @@
+name: "Setup uv + Python"
+description: "Install uv, Python, and project dependencies"
+
+inputs:
+  python-version:
+    description: "Python version to install"
+    required: false
+    default: "3.12"
+  dev:
+    description: "Install dev dependencies (true/false)"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+
+    - name: Set up Python ${{ inputs.python-version }}
+      run: uv python install ${{ inputs.python-version }}
+      shell: bash
+
+    - name: Install dependencies
+      run: |
+        if [ "${{ inputs.dev }}" = "true" ]; then
+          uv sync --frozen
+        else
+          uv sync --frozen --no-dev
+        fi
+      shell: bash

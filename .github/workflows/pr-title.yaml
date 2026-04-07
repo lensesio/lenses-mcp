@@ -1,0 +1,60 @@
+# Validates PR commit count and title format (conventional commits).
+# Mirrors the Go pipeline's pr-title.yaml.
+
+name: "PR: Conventional commit title"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      - name: Validate commit count and title
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          fail() {
+            echo ""
+            echo "This serves an actual purpose. Release notes are derived from"
+            echo "the commit history. Please follow conventional commits format."
+            exit 1
+          }
+
+          commits=$(git rev-list --count "origin/${BASE_REF}..HEAD")
+
+          if [ "$commits" -ne 1 ]; then
+            echo "PR must contain exactly one commit. Found: $commits"
+            echo "Please rebase and squash your commits."
+            fail
+          fi
+
+          title=$(git log -1 --format=%s HEAD)
+
+          # Reject ticket IDs in title (put them in body instead)
+          match=$(echo "$title" | grep -oE '[A-Z0-9]{2,3}-[0-9]+' | grep -v '^RFC-' | head -n1)
+          if [ -n "$match" ]; then
+            echo "Commit title must not contain a ticket pattern like: $match"
+            echo "Put task IDs in the commit body instead."
+            fail
+          fi
+
+          if ! echo "$title" | grep -Eq '^(feat|fix|chore|docs|test[s]?|refactor|ci)(\([^)]+\))?: [A-Z].*'; then
+            echo "Commit title must have format: type(scope?): Message"
+            echo "- Type: feat, fix, chore, docs, test, tests, refactor, ci"
+            echo "- Scope is optional"
+            echo "- Message must start with a capital letter"
+            echo ""
+            echo "Examples:"
+            echo "  feat: Add topic deletion tool"
+            echo "  fix(sql): Handle empty result sets"
+            echo "  chore(ci): Update ruff to v0.10"
+            fail
+          fi

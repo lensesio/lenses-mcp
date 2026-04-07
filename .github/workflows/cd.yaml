@@ -1,0 +1,156 @@
+# CD — triggered when CI completes successfully on a branch push.
+# Builds and pushes multi-arch Docker images.
+# Release tags are handled separately by release.yaml.
+#
+# On the internal org, images are pushed to Docker Hub, GCR, and AWS ECR.
+# On forks, only Docker Hub is used (GCR/ECR steps are skipped).
+#
+# Required secrets:
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+# Required secrets (internal org only):
+#   ECR_AWS_ACCESS_KEY_ID, ECR_AWS_SECRET_ACCESS_KEY
+#   GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
+# Required vars:
+#   INTERNAL_ORG — GitHub org name that owns the internal registries
+# Required vars (internal org only):
+#   GCR_REGISTRY (e.g. ${GCR_REGISTRY})
+#   ECR_REGISTRY (e.g. 123456789.dkr.ecr.${AWS_REGION}.amazonaws.com)
+
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types:
+      - completed
+    branches:
+      - "**"
+
+jobs:
+  build-and-push:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      INTERNAL_ORG: ${{ vars.INTERNAL_ORG }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set build metadata
+        id: meta
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          BRANCH=$(echo "${HEAD_BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          DESCRIBE=$(git describe --tags 2>/dev/null || echo "${BRANCH}-${SHA_SHORT}")
+
+          echo "sha_short=${SHA_SHORT}" >> "${GITHUB_OUTPUT}"
+          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
+          echo "describe=${DESCRIBE}" >> "${GITHUB_OUTPUT}"
+
+          # Build tag list — always include Docker Hub
+          TAGS="lensesio/mcp:${BRANCH}"
+          TAGS="${TAGS},lensesio/mcp:${SHA_SHORT}"
+          TAGS="${TAGS},lensesio/mcp:${DESCRIBE}"
+
+          echo "tags=${TAGS}" >> "${GITHUB_OUTPUT}"
+
+      - name: Add internal registry tags
+        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+        id: internal
+        run: |
+          BRANCH="${{ steps.meta.outputs.branch }}"
+          SHA_SHORT="${{ steps.meta.outputs.sha_short }}"
+          DESCRIBE="${{ steps.meta.outputs.describe }}"
+
+          GCR="${{ vars.GCR_REGISTRY }}"
+          ECR="${{ vars.ECR_REGISTRY }}"
+
+          TAGS="${GCR}/lenses-mcp:${BRANCH}"
+          TAGS="${TAGS},${GCR}/lenses-mcp:${SHA_SHORT}"
+          TAGS="${TAGS},${GCR}/lenses-mcp:${DESCRIBE}"
+          TAGS="${TAGS},${ECR}/lenses-mcp:${BRANCH}"
+          TAGS="${TAGS},${ECR}/lenses-mcp:${SHA_SHORT}"
+          TAGS="${TAGS},${ECR}/lenses-mcp:${DESCRIBE}"
+
+          echo "tags=${TAGS}" >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${AWS_REGION}
+
+      - name: Login to Amazon ECR
+        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          mask-password: "true"
+
+      - name: Authenticate to Google Cloud
+        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+        id: gcp-auth
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          token_format: access_token
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Login to Google Cloud Registry
+        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          username: oauth2accesstoken
+          password: ${{ steps.gcp-auth.outputs.access_token }}
+          registry: ${{ vars.GCR_REGISTRY }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}${{ steps.internal.outputs.tags && format(',{0}', steps.internal.outputs.tags) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Print pushed tags
+        run: |
+          echo "=== Docker Hub ==="
+          echo "  lensesio/mcp:${{ steps.meta.outputs.branch }}"
+          echo "  lensesio/mcp:${{ steps.meta.outputs.sha_short }}"
+          echo "  lensesio/mcp:${{ steps.meta.outputs.describe }}"
+
+      - name: Print internal registry tags
+        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+        run: |
+          echo "=== Google Container Registry ==="
+          echo "  ${{ vars.GCR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.branch }}"
+          echo "  ${{ vars.GCR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.sha_short }}"
+          echo "  ${{ vars.GCR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.describe }}"
+          echo ""
+          echo "=== AWS ECR ==="
+          echo "  ${{ vars.ECR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.branch }}"
+          echo "  ${{ vars.ECR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.sha_short }}"
+          echo "  ${{ vars.ECR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.describe }}"

@@ -1,0 +1,163 @@
+# CI — runs on every push to any branch and on PRs
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:  # Allow reuse by release.yaml
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Test suite
+  # ──────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=0 -x -q
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ──────────────────────────────────────────────
+  # Lint + format
+  # ──────────────────────────────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+
+      - name: Ruff check (lint)
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  # ──────────────────────────────────────────────
+  # Type checking
+  # ──────────────────────────────────────────────
+  typecheck:
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Pre-existing type issues — non-blocking until resolved
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+
+      - name: mypy
+        run: uv run mypy src/
+
+  # ──────────────────────────────────────────────
+  # Vulnerability scanning
+  # ──────────────────────────────────────────────
+  vulnerabilities:
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Transitive dep CVEs — non-blocking until upstream fixes
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+
+      - name: pip-audit
+        run: uv run pip-audit
+
+  # ──────────────────────────────────────────────
+  # License check
+  # ──────────────────────────────────────────────
+  licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+        with:
+          dev: "false"
+
+      - name: Check licenses
+        run: |
+          uv run pip-licenses \
+            --fail-on="GNU General Public License v3 (GPLv3);GNU Affero General Public License v3 (AGPLv3)" \
+            --allow-only="MIT;MIT License;MIT style;DFSG approved; MIT License;BSD License;BSD-2-Clause;BSD-3-Clause;Apache Software License;Apache-2.0;ISC License (ISCL);Mozilla Public License 2.0 (MPL 2.0);Python Software Foundation License;PSF-2.0;The Unlicense (Unlicense);Apache Software License; MIT License;BSD License; GNU General Public License (GPL); Public Domain;Apache-2.0 OR BSD-3-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 AND BSD-2-Clause"
+
+  # ──────────────────────────────────────────────
+  # Container build validation
+  # ──────────────────────────────────────────────
+  build-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: app:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────
+  # Security scanning (SAST) — Bandit rules via Ruff
+  # ──────────────────────────────────────────────
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+
+      - name: Ruff security checks (Bandit rules)
+        run: uv run ruff check --select S --output-format=github .
+
+  # ──────────────────────────────────────────────
+  # Secret detection — prevents committed credentials
+  # ──────────────────────────────────────────────
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.22.1/gitleaks_8.22.1_linux_x64.tar.gz \
+            | tar xz -C /usr/local/bin gitleaks
+
+      - name: Run gitleaks
+        run: gitleaks detect --source . --verbose
+
+  # ──────────────────────────────────────────────
+  # Gate — single required check for branch protection
+  # Only depends on jobs that must pass.
+  # ──────────────────────────────────────────────
+  ci-passed:
+    if: always()
+    needs: [test, lint, licenses, build-container, security, secrets]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required jobs
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || \
+             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "Required CI jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All required CI jobs passed"
