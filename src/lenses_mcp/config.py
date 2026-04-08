@@ -40,3 +40,12 @@ HOST = os.getenv("HOST", "0.0.0.0")  # noqa: S104
 PORT = int(os.getenv("PORT", "8000"))
 # Consumed directly by FastMCP internals; surfaced here for visibility/logging.
 FASTMCP_STATELESS_HTTP = os.getenv("FASTMCP_STATELESS_HTTP", "false")
+
+# OAuth 2.1 gateway config. When AUTH_SERVER_URL is unset, the MCP server runs
+# without RemoteAuthProvider and tools fall back to the static LENSES_API_KEY
+# (legacy / stdio behavior — see auth.resolve_token).
+AUTH_SERVER_URL = os.getenv("AUTH_SERVER_URL")
+MCP_SERVER_BASE_URL = os.getenv("MCP_SERVER_BASE_URL")
+# Scopes the resource requires. Published in protected-resource metadata so
+# compliant clients include them in their /authorize request.
+MCP_SCOPES = [s.strip() for s in os.getenv("MCP_SCOPES", "read,write,delete").split(",") if s.strip()]

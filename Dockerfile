@@ -41,12 +41,7 @@ EXPOSE 8000
 
 USER lensesmcp
 
-# Default command runs the MCP server with configurable transport
-# For stdio: only --transport is used
-# For http/sse: --transport, --port, and --host are used
-CMD ["/bin/sh", "-c", "\
-    if [ \"${TRANSPORT}\" = \"stdio\" ]; then \
-        uv run fastmcp run src/lenses_mcp/server.py --transport=${TRANSPORT}; \
-    else \
-        uv run fastmcp run src/lenses_mcp/server.py --transport=${TRANSPORT} --port=${PORT} --host=0.0.0.0; \
-    fi"]
+# Default command runs the MCP server via its own __main__ entrypoint, so the
+# CORS middleware and auth wiring in server.py are applied. Transport, host,
+# port, and stateless_http are all read from env vars by config.py.
+CMD ["uv", "run", "python", "src/lenses_mcp/server.py"]
