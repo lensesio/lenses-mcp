@@ -15,7 +15,10 @@ WORKDIR /lenses-mcp
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    UV_SYSTEM_PYTHON=1
+    UV_SYSTEM_PYTHON=1 \
+    UV_NO_SYNC=1 \
+    FASTMCP_LOG_LEVEL=INFO \
+    FASTMCP_STATELESS_HTTP=true
 
 # Copy dependency files
 COPY pyproject.toml uv.lock ./

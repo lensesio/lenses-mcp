@@ -33,3 +33,10 @@ LENSES_API_WEBSOCKET_URL = os.getenv("LENSES_API_WEBSOCKET_URL", LENSES_API_WEBS
 LENSES_API_WEBSOCKET_PORT = os.getenv("LENSES_API_WEBSOCKET_PORT", LENSES_API_WEBSOCKET_PORT)
 
 LENSES_API_KEY = os.getenv("LENSES_API_KEY", "")
+
+# MCP server transport configuration
+TRANSPORT = os.getenv("TRANSPORT", "stdio")
+HOST = os.getenv("HOST", "0.0.0.0")  # noqa: S104
+PORT = int(os.getenv("PORT", "8000"))
+# Consumed directly by FastMCP internals; surfaced here for visibility/logging.
+FASTMCP_STATELESS_HTTP = os.getenv("FASTMCP_STATELESS_HTTP", "false")
