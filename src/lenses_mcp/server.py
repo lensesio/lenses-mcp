@@ -2,11 +2,13 @@
 Lenses MCP Server for interacting with Lenses HQ.
 """
 
-from auth import PassthroughTokenVerifier
+from auth import DiscoveryTokenVerifier
 from config import (
     AUTH_SERVER_URL,
     FASTMCP_STATELESS_HTTP,
     HOST,
+    INTROSPECTION_CACHE_TTL,
+    INTROSPECTION_URL,
     LENSES_API_HTTP_PORT,
     LENSES_API_HTTP_URL,
     LENSES_API_WEBSOCKET_PORT,
@@ -47,7 +49,11 @@ if AUTH_SERVER_URL:
     if not MCP_SERVER_BASE_URL:
         raise RuntimeError("MCP_SERVER_BASE_URL must be set when AUTH_SERVER_URL is set")
     auth = RemoteAuthProvider(
-        token_verifier=PassthroughTokenVerifier(),
+        token_verifier=DiscoveryTokenVerifier(
+            auth_server_url=AUTH_SERVER_URL,
+            introspection_url=INTROSPECTION_URL,
+            cache_ttl_seconds=INTROSPECTION_CACHE_TTL if INTROSPECTION_CACHE_TTL > 0 else None,
+        ),
         authorization_servers=[AnyHttpUrl(AUTH_SERVER_URL)],
         base_url=MCP_SERVER_BASE_URL,
         scopes_supported=MCP_SCOPES,

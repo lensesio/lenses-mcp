@@ -3,6 +3,7 @@ from typing import Any
 from clients.http_client import api_client
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.server.auth import require_scopes
 
 """
 Registers all topic and dataset operations with the MCP server.
@@ -15,7 +16,7 @@ def register_topics(mcp: FastMCP):
     # TOPIC OPERATIONS
     # ================
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def list_topics(environment: str) -> list[dict[str, Any]]:
         """
         Retrieve information about all topics.
@@ -29,7 +30,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/topics"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_topic(environment: str, topic_name: str) -> dict[str, Any]:
         """
         Retrieve information about a specific topic.
@@ -44,7 +45,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/topics/{topic_name}"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_topic_partitions(environment: str, topic_name: str) -> dict[str, Any]:
         """
         Retrieve detailed partition information including messages and bytes (v2 endpoint).
@@ -59,7 +60,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v2/topics/{topic_name}/partitions"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def create_topic(
         environment: str,
         topic_name: str,
@@ -93,7 +94,7 @@ def register_topics(mcp: FastMCP):
         except Exception as e:
             raise ToolError(f"Topic creation failed: {e}") from e
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def create_topic_with_schema(
         environment: str,
         name: str,
@@ -147,7 +148,7 @@ def register_topics(mcp: FastMCP):
         except Exception as e:
             raise ToolError(f"Topic creation failed: {e}") from e
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def update_topic_config(environment: str, topic_name: str, configs: list[dict[str, str]]) -> str:
         """
         Update topic configuration.
@@ -164,7 +165,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/configs/topics/{topic_name}"
         return await api_client._make_request("PUT", endpoint, payload)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_topic_broker_configs(environment: str, topic_name: str) -> list[dict[str, Any]]:
         """
         Get broker configurations for a topic.
@@ -179,7 +180,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/topics/{topic_name}/brokerConfigs"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def add_topic_partitions(environment: str, topic_name: str, partitions: int) -> dict[str, Any]:
         """
         Add partitions to an existing topic.
@@ -196,7 +197,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/kafka/topics/{topic_name}/partitions"
         return await api_client._make_request("PUT", endpoint, payload)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def resend_message(environment: str, topic_name: str, partition: int, offset: int) -> dict[str, Any]:
         """
         Resend a Kafka message.
@@ -217,7 +218,7 @@ def register_topics(mcp: FastMCP):
     # TOPIC METADATA OPERATIONS
     # =========================
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def list_topic_metadata(environment: str) -> list[dict[str, Any]]:
         """
         List all topic metadata.
@@ -231,7 +232,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/metadata/topics"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_topic_metadata(environment: str, topic_name: str) -> dict[str, Any]:
         """
         Get metadata for a specific topic.
@@ -246,7 +247,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/metadata/topics/{topic_name}"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def update_topic_metadata(environment: str, metadata: dict[str, Any]) -> str:
         """Update topic metadata.
 
@@ -271,7 +272,7 @@ def register_topics(mcp: FastMCP):
     # KAFKA DATASET OPERATIONS
     # ========================
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def list_datasets(
         environment: str,
         page: int = 1,
@@ -345,7 +346,7 @@ def register_topics(mcp: FastMCP):
 
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_dataset(environment: str, connection: str, dataset: str) -> dict[str, Any]:
         """
         Get a single dataset by connection/name.
@@ -361,7 +362,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/{connection}/{dataset}"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_dataset_message_metrics(environment: str, entity_name: str) -> list[dict[str, Any]]:
         """
         Get ranged metrics for a dataset's messages.
@@ -376,7 +377,7 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/datasets/kafka/{entity_name}/messages/metrics"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def update_dataset_topic_description(
         environment: str, topic_name: str, description: str | None = None
     ) -> dict[str, Any]:
@@ -397,7 +398,7 @@ def register_topics(mcp: FastMCP):
 
         return await api_client._make_request("PUT", endpoint, description_payload)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def update_dataset_topic_tags(environment: str, topic_name: str, tags: list[str]) -> dict[str, Any]:
         """
         Update topic tags (in metadata).

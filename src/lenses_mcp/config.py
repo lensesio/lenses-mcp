@@ -49,3 +49,10 @@ MCP_SERVER_BASE_URL = os.getenv("MCP_SERVER_BASE_URL")
 # Scopes the resource requires. Published in protected-resource metadata so
 # compliant clients include them in their /authorize request.
 MCP_SCOPES = [s.strip() for s in os.getenv("MCP_SCOPES", "read,write,delete").split(",") if s.strip()]
+
+# RFC 7662 Token Introspection config.
+# The introspection URL is discovered from .well-known/oauth-authorization-server
+# metadata unless explicitly overridden here. The introspection endpoint is
+# called without client authentication.
+INTROSPECTION_URL = os.getenv("INTROSPECTION_URL")
+INTROSPECTION_CACHE_TTL = int(os.getenv("INTROSPECTION_CACHE_TTL", "0"))

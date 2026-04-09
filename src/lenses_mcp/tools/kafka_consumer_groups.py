@@ -2,6 +2,7 @@ from typing import Any
 
 from clients.http_client import api_client
 from fastmcp import FastMCP
+from fastmcp.server.auth import require_scopes
 
 """
 Registers all Kafka consumer group operations with the MCP server.
@@ -10,7 +11,7 @@ Registers all Kafka consumer group operations with the MCP server.
 
 def register_kafka_consumer_groups(mcp: FastMCP):
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def list_consumer_groups(environment: str) -> list[dict[str, Any]]:
         """
         Retrieve a list of all Kafka consumer groups.
@@ -24,7 +25,7 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def list_consumer_groups_by_topic(environment: str, topic: str) -> list[dict[str, Any]]:
         """
         Retrieve a list of consumer groups by a specific topic.
@@ -39,7 +40,7 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{topic}"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def update_consumer_group_offsets(
         environment: str, group_id: str, offsets: list[dict[str, Any]]
     ) -> dict[str, Any]:
@@ -57,7 +58,7 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}/offsets"
         return await api_client._make_request("PUT", endpoint, json=offsets)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("delete"))
     async def delete_consumer_group_offsets(
         environment: str, group_id: str, offsets: list[dict[str, Any]]
     ) -> dict[str, Any]:
@@ -75,7 +76,7 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/consumers/{group_id}/offsets/delete"
         return await api_client._make_request("POST", endpoint, json=offsets)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def update_consumer_group_topic_partition_offset(
         environment: str, group_id: str, topic: str, partition: int, offset: int
     ) -> dict[str, Any]:
@@ -99,7 +100,7 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         payload = {"offset": offset}
         return await api_client._make_request("PUT", endpoint, json=payload)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("delete"))
     async def delete_consumer_group_topic_partition_offset(
         environment: str, group_id: str, topic: str, partition: int
     ) -> dict[str, Any]:
@@ -121,7 +122,7 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         )
         return await api_client._make_request("DELETE", endpoint)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("delete"))
     async def delete_consumer_group(environment: str, group_id: str) -> dict[str, Any]:
         """
         Delete a consumer group.

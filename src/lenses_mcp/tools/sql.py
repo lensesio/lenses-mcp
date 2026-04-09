@@ -2,6 +2,7 @@ from typing import Any
 
 from clients.websocket_client import websocket_client
 from fastmcp import FastMCP
+from fastmcp.server.auth import require_scopes
 
 """
 Registers all SQL-related operations (such as SQL execution) with the MCP server.
@@ -10,7 +11,7 @@ Registers all SQL-related operations (such as SQL execution) with the MCP server
 
 def register_sql(mcp: FastMCP):
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def execute_sql(environment: str, sql: str) -> list[dict[str, Any]]:
         """
         Executes SQL statements/queries using Lenses WebSocket API.

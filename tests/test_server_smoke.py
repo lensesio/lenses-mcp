@@ -68,12 +68,13 @@ EXPECTED_TOOLS = [
 @pytest.mark.asyncio
 async def test_server_registers_all_tools():
     """All expected MCP tools are registered on the server."""
-    async with Client(mcp) as client:
-        tools = await client.list_tools()
-        tool_names = {t.name for t in tools}
+    # Use _list_tools() to bypass per-tool auth filtering; the STDIO test
+    # client has no OAuth token so require_scopes hides every tool.
+    tools = await mcp._list_tools()
+    tool_names = {t.name for t in tools}
 
-        for expected in EXPECTED_TOOLS:
-            assert expected in tool_names, f"Missing tool: {expected}"
+    for expected in EXPECTED_TOOLS:
+        assert expected in tool_names, f"Missing tool: {expected}"
 
 
 @pytest.mark.asyncio
@@ -90,10 +91,9 @@ async def test_server_registers_prompts():
 @pytest.mark.asyncio
 async def test_tool_count_matches():
     """Tool count matches expected list — catches unregistered or extra tools."""
-    async with Client(mcp) as client:
-        tools = await client.list_tools()
-        assert len(tools) == len(EXPECTED_TOOLS), (
-            f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tools)}. "
-            f"Extra: {set(t.name for t in tools) - set(EXPECTED_TOOLS)}, "
-            f"Missing: {set(EXPECTED_TOOLS) - set(t.name for t in tools)}"
-        )
+    tools = await mcp._list_tools()
+    assert len(tools) == len(EXPECTED_TOOLS), (
+        f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tools)}. "
+        f"Extra: {set(t.name for t in tools) - set(EXPECTED_TOOLS)}, "
+        f"Missing: {set(EXPECTED_TOOLS) - set(t.name for t in tools)}"
+    )

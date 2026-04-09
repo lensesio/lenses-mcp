@@ -2,6 +2,7 @@ from typing import Any
 
 from clients.http_client import api_client
 from fastmcp import FastMCP
+from fastmcp.server.auth import require_scopes
 
 """
 Registers all environment operations with the MCP server.
@@ -10,7 +11,7 @@ Registers all environment operations with the MCP server.
 
 def register_environments(mcp: FastMCP):
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def list_environments() -> list[dict[str, Any]]:
         """
         Lists all Lenses environments.
@@ -21,7 +22,7 @@ def register_environments(mcp: FastMCP):
         result = await api_client._make_request("GET", "/api/v1/environments")
         return result.get("items", [])
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def get_environment(name: str) -> dict[str, Any]:
         """
         Retrieves a single Lenses environment by name.
@@ -37,7 +38,7 @@ def register_environments(mcp: FastMCP):
 
         return await api_client._make_request("GET", f"/api/v1/environments/{name}")
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("write"))
     async def create_environment(
         name: str, display_name: str | None = None, tier: str = "development", metadata: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -75,7 +76,7 @@ def register_environments(mcp: FastMCP):
 
         return await api_client._make_request("POST", "/api/v1/environments", payload)
 
-    @mcp.tool()
+    @mcp.tool(auth=require_scopes("read"))
     async def check_environment_health(name: str) -> dict[str, Any]:
         """
         Checks the health status of a Lenses environment.
