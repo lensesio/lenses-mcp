@@ -1,5 +1,5 @@
 .PHONY: help install lint format format-check typecheck test test-cov security vulnerabilities licenses \
-       build-container pre-commit clean ci
+       license-report build-container pre-commit clean ci
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -40,6 +40,14 @@ licenses: ## Check dependency licenses
 	uv run pip-licenses \
 		--fail-on="GNU General Public License v3 (GPLv3);GNU Affero General Public License v3 (AGPLv3)" \
 		--allow-only="MIT;MIT License;MIT style;DFSG approved; MIT License;BSD License;BSD-2-Clause;BSD-3-Clause;Apache Software License;Apache-2.0;ISC License (ISCL);Mozilla Public License 2.0 (MPL 2.0);Python Software Foundation License;PSF-2.0;The Unlicense (Unlicense);Apache Software License; MIT License;BSD License; GNU General Public License (GPL); Public Domain;Apache-2.0 OR BSD-3-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 AND BSD-2-Clause;UNKNOWN"
+
+license-report: ## Generate NOTICE.txt with third-party licenses
+	uv run pip-licenses \
+		--ignore-packages pip-licenses prettytable wcwidth \
+		--format=plain-vertical \
+		--with-license-file \
+		--no-license-path \
+		--output-file=NOTICE.txt
 
 # ── Container ──────────────────────────────────
 build-container: ## Build Docker image locally

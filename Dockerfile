@@ -23,10 +23,22 @@ ENV PYTHONUNBUFFERED=1 \
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --no-dev
+# Install production dependencies, generate third-party license report,
+# then clean up the temporary pip-licenses tool.
+# Note: uv sync creates .venv even with UV_SYSTEM_PYTHON=1, so we must
+# install pip-licenses into the venv (--python) for it to see prod deps.
+RUN uv sync --frozen --no-dev \
+    && uv pip install --python .venv/bin/python pip-licenses \
+    && uv run pip-licenses \
+         --ignore-packages pip-licenses prettytable wcwidth \
+         --format=plain-vertical \
+         --with-license-file \
+         --no-license-path \
+         --output-file=NOTICE.txt \
+    && uv sync --frozen --no-dev
 
-# Copy application source code
+# Copy application source code and license file
+COPY LICENSE ./
 COPY src/ ./src/
 
 # Copy environment example (users should use their own /app/.env or set env vars)

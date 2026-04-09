@@ -1,12 +1,10 @@
-# CI — runs on every push to any branch and on PRs
+# CI — runs on PRs directly, and on pushes via cd.yaml (workflow_call).
 
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
-  workflow_call:  # Allow reuse by release.yaml
+  workflow_call:  # Called by cd.yaml on every push
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

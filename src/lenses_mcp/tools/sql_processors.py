@@ -70,7 +70,7 @@ def register_sql_processors(mcp: FastMCP):
         Returns:
             The created SQL processor object with its ID.
         """
-        payload = {"name": name, "sql": sql}
+        payload: dict[str, Any] = {"name": name, "sql": sql}
 
         if sql_processor_id:
             payload["processorId"] = sql_processor_id

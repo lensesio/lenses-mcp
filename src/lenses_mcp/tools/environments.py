@@ -65,7 +65,7 @@ def register_environments(mcp: FastMCP):
         if tier not in valid_tiers:
             raise ValueError(f"Tier must be one of: {', '.join(valid_tiers)}")
 
-        payload = {"name": name, "tier": tier}
+        payload: dict[str, Any] = {"name": name, "tier": tier}
 
         if display_name:
             payload["display_name"] = display_name
@@ -88,7 +88,7 @@ def register_environments(mcp: FastMCP):
         """
         env = await get_environment(name)
 
-        health_status = {"environment": name, "healthy": False, "agent_connected": False, "issues": []}
+        health_status: dict[str, Any] = {"environment": name, "healthy": False, "agent_connected": False, "issues": []}
 
         if "status" in env:
             health_status["agent_connected"] = env["status"].get("agent_connected", False)

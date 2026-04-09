@@ -30,11 +30,13 @@ class LensesWebSocketClient:
 
         try:
             async with websockets.connect(uri=uri, additional_headers=headers) as ws:
-                records = []
+                records: list[dict[str, Any]] = []
                 await ws.send(json.dumps({"sql": sql}))
 
                 while True:
                     response = await ws.recv()
+                    if isinstance(response, bytes):
+                        response = response.decode()
                     logger.info(f"Message received: {response}")
 
                     data = json.loads(response)
@@ -45,7 +47,7 @@ class LensesWebSocketClient:
                             data_ = data.get("data")
 
                             if not data_:
-                                return
+                                return records
 
                             records.append(data_)
                             logger.info(f"Record appended: {data_}")

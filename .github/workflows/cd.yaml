@@ -1,129 +1,143 @@
-# CD — triggered when CI completes successfully on a branch push.
-# Builds and pushes multi-arch Docker images.
-# Release tags are handled separately by release.yaml.
+# CD — builds and pushes multi-arch Docker images to internal registries.
+# Public Docker Hub images are handled by the lenses-release pipeline.
 #
-# On the internal org, images are pushed to Docker Hub, GCR, and AWS ECR.
-# On forks, only Docker Hub is used (GCR/ECR steps are skipped).
+# Triggers on every push (branches and tags). CI runs as a called
+# workflow first; build-and-push only proceeds if CI passes.
 #
 # Required secrets:
-#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
-# Required secrets (internal org only):
 #   ECR_AWS_ACCESS_KEY_ID, ECR_AWS_SECRET_ACCESS_KEY
-#   GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
 # Required vars:
-#   INTERNAL_ORG — GitHub org name that owns the internal registries
-# Required vars (internal org only):
-#   GCR_REGISTRY (e.g. ${GCR_REGISTRY})
-#   ECR_REGISTRY (e.g. 123456789.dkr.ecr.${AWS_REGION}.amazonaws.com)
+#   GH_ORG, AWS_REGION
+#   GCR_REGISTRY, ECR_REGISTRY
+#   GCS_BUCKET_DEV, GCS_BUCKET_RELEASE
+#   GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SA_ACCOUNT
 
 name: CD
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types:
-      - completed
-    branches:
-      - "**"
+  push:
+    branches: ["**"]
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-la.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-pre.[0-9]+"
 
 jobs:
+  # ── CI gate ────────────────────────────────────
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  # ── Build, push, and (optionally) release ─────
   build-and-push:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: [ci]
+    if: >-
+      vars.GH_ORG != '' &&
+      github.repository_owner == vars.GH_ORG
     name: Build and push Docker images
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
+      attestations: write
       id-token: write
-    env:
-      INTERNAL_ORG: ${{ vars.INTERNAL_ORG }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
 
+      # ── Metadata ──────────────────────────────────
       - name: Set build metadata
         id: meta
         env:
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GCR: ${{ vars.GCR_REGISTRY }}
+          ECR: ${{ vars.ECR_REGISTRY }}
+          GCS_DEV: ${{ vars.GCS_BUCKET_DEV }}
+          GCS_REL: ${{ vars.GCS_BUCKET_RELEASE }}
         run: |
           SHA_SHORT=$(git rev-parse --short HEAD)
-          BRANCH=$(echo "${HEAD_BRANCH}" | sed 's/[^a-zA-Z0-9._-]/-/g')
-          DESCRIBE=$(git describe --tags 2>/dev/null || echo "${BRANCH}-${SHA_SHORT}")
+          COMMIT_SHA=$(git rev-parse HEAD)
+
+          # Detect version tag on this commit
+          TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+
+          if echo "${TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            IS_RELEASE=true
+            VERSION="${TAG#v}"
+
+            if echo "${TAG}" | grep -qE '-(alpha|beta|rc|la|pre)\.[0-9]+$'; then
+              PRERELEASE=true
+            else
+              PRERELEASE=false
+            fi
+
+            # Release: GCR and ECR get the version tag only
+            GCR_TAGS="${GCR}/lenses-mcp:${VERSION}"
+            ECR_TAGS="${ECR}/lenses-mcp:${VERSION}"
+            GCS_DESTINATION="${GCS_REL}/lenses-mcp/${VERSION}"
+            IMAGE_REF="${GCR}/lenses-mcp:${VERSION}"
+          else
+            IS_RELEASE=false
+            PRERELEASE=false
+            VERSION=""
+
+            # Development: GCR gets branch + SHA + describe; ECR gets branch + describe
+            BRANCH=$(echo "${GITHUB_REF_NAME}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            DESCRIBE=$(git describe --tags 2>/dev/null || echo "${BRANCH}-${SHA_SHORT}")
+
+            GCR_TAGS="${GCR}/lenses-mcp:${BRANCH}"
+            GCR_TAGS="${GCR_TAGS},${GCR}/lenses-mcp:${SHA_SHORT}"
+            GCR_TAGS="${GCR_TAGS},${GCR}/lenses-mcp:${DESCRIBE}"
+            ECR_TAGS="${ECR}/lenses-mcp:${BRANCH}"
+            ECR_TAGS="${ECR_TAGS},${ECR}/lenses-mcp:${DESCRIBE}"
+            GCS_DESTINATION="${GCS_DEV}/lenses-mcp/${COMMIT_SHA}"
+            IMAGE_REF="${GCR}/lenses-mcp:${SHA_SHORT}"
+          fi
 
           echo "sha_short=${SHA_SHORT}" >> "${GITHUB_OUTPUT}"
-          echo "branch=${BRANCH}" >> "${GITHUB_OUTPUT}"
-          echo "describe=${DESCRIBE}" >> "${GITHUB_OUTPUT}"
+          echo "commit_sha=${COMMIT_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "is_release=${IS_RELEASE}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "docker_tags=${GCR_TAGS},${ECR_TAGS}" >> "${GITHUB_OUTPUT}"
+          echo "gcs_destination=${GCS_DESTINATION}" >> "${GITHUB_OUTPUT}"
+          echo "image_ref=${IMAGE_REF}" >> "${GITHUB_OUTPUT}"
 
-          # Build tag list — always include Docker Hub
-          TAGS="lensesio/mcp:${BRANCH}"
-          TAGS="${TAGS},lensesio/mcp:${SHA_SHORT}"
-          TAGS="${TAGS},lensesio/mcp:${DESCRIBE}"
-
-          echo "tags=${TAGS}" >> "${GITHUB_OUTPUT}"
-
-      - name: Add internal registry tags
-        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
-        id: internal
-        run: |
-          BRANCH="${{ steps.meta.outputs.branch }}"
-          SHA_SHORT="${{ steps.meta.outputs.sha_short }}"
-          DESCRIBE="${{ steps.meta.outputs.describe }}"
-
-          GCR="${{ vars.GCR_REGISTRY }}"
-          ECR="${{ vars.ECR_REGISTRY }}"
-
-          TAGS="${GCR}/lenses-mcp:${BRANCH}"
-          TAGS="${TAGS},${GCR}/lenses-mcp:${SHA_SHORT}"
-          TAGS="${TAGS},${GCR}/lenses-mcp:${DESCRIBE}"
-          TAGS="${TAGS},${ECR}/lenses-mcp:${BRANCH}"
-          TAGS="${TAGS},${ECR}/lenses-mcp:${SHA_SHORT}"
-          TAGS="${TAGS},${ECR}/lenses-mcp:${DESCRIBE}"
-
-          echo "tags=${TAGS}" >> "${GITHUB_OUTPUT}"
-
-      - uses: docker/setup-qemu-action@v3
-
-      - uses: docker/setup-buildx-action@v3
-
+      # ── Cloud authentication ──────────────────────
       - name: Configure AWS credentials
-        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${AWS_REGION}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
         with:
           mask-password: "true"
 
       - name: Authenticate to Google Cloud
-        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
         id: gcp-auth
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f # v2.1.7
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           token_format: access_token
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          service_account: ${{ vars.GCP_SA_ACCOUNT }}
 
       - name: Login to Google Cloud Registry
-        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           username: oauth2accesstoken
           password: ${{ steps.gcp-auth.outputs.access_token }}
           registry: ${{ vars.GCR_REGISTRY }}
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # ── Docker build ──────────────────────────────
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -131,26 +145,108 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}${{ steps.internal.outputs.tags && format(',{0}', steps.internal.outputs.tags) || '' }}
+          tags: ${{ steps.meta.outputs.docker_tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Print pushed tags
-        run: |
-          echo "=== Docker Hub ==="
-          echo "  lensesio/mcp:${{ steps.meta.outputs.branch }}"
-          echo "  lensesio/mcp:${{ steps.meta.outputs.sha_short }}"
-          echo "  lensesio/mcp:${{ steps.meta.outputs.describe }}"
+      # ── License report + SBOMs ────────────────────
+      - uses: ./.github/actions/setup-uv
+        with:
+          dev: "false"
 
-      - name: Print internal registry tags
-        if: env.INTERNAL_ORG != '' && github.repository_owner == env.INTERNAL_ORG
+      - name: Generate license report
         run: |
-          echo "=== Google Container Registry ==="
-          echo "  ${{ vars.GCR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.branch }}"
-          echo "  ${{ vars.GCR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.sha_short }}"
-          echo "  ${{ vars.GCR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.describe }}"
+          mkdir -p out/storage-release out/github-release
+          # Install pip-licenses into the production-only env, generate
+          # the report (which only sees production deps), then re-sync
+          # to remove pip-licenses and its transitive deps.
+          uv pip install pip-licenses
+          uv run pip-licenses \
+            --ignore-packages pip-licenses prettytable wcwidth \
+            --format=plain-vertical \
+            --with-license-file \
+            --no-license-path \
+            --output-file=out/NOTICE.txt
+          uv sync --frozen --no-dev
+          cp out/NOTICE.txt out/storage-release/
+          cp out/NOTICE.txt out/github-release/
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+
+      - name: Generate SBOMs
+        run: |
+          # Python dependency SBOM (the MCP server's own packages)
+          syft dir:. -o syft-json > out/SBOM-lenses-mcp.syft.json
+          # Docker image SBOM (OS + runtime)
+          syft "${{ steps.meta.outputs.image_ref }}" \
+            -o syft-json > out/SBOM-docker-lenses-mcp.syft.json
+
+          cp out/SBOM* out/storage-release/
+          cp out/SBOM* out/github-release/
+
+      # ── GCS artifacts ─────────────────────────────
+      - name: Upload artifacts to GCS
+        uses: google-github-actions/upload-cloud-storage@386ab77f37fdf51c0e38b3d229fad286861cc0d0 # v2.2.1
+        with:
+          path: out/storage-release/
+          parent: false
+          destination: ${{ steps.meta.outputs.gcs_destination }}
+          gzip: false
+
+      # ── Release-only steps ────────────────────────
+      - name: Create GitHub attestations
+        if: steps.meta.outputs.is_release == 'true'
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4
+        with:
+          subject-path: |
+            out/github-release/*.syft.json
+
+      - name: Generate release notes
+        if: steps.meta.outputs.is_release == 'true'
+        id: notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          {
+            echo 'body<<EOF'
+            echo "## What's Changed"
+            echo ""
+            if [ -n "${PREV_TAG}" ]; then
+              git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
+                | grep -v -E '^\- (chore|ci)(\(|:)' || true
+            else
+              git log --pretty=format:"- %s" -20 \
+                | grep -v -E '^\- (chore|ci)(\(|:)' || true
+            fi
+            echo ""
+            echo ""
+            if [ -n "${PREV_TAG}" ]; then
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ steps.meta.outputs.tag }}"
+            fi
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub Release
+        if: steps.meta.outputs.is_release == 'true'
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          generate_release_notes: false
+          files: |
+            ./out/github-release/*
+
+      # ── Summary ───────────────────────────────────
+      - name: Print summary
+        run: |
+          echo "=== Docker tags pushed ==="
+          echo "${{ steps.meta.outputs.docker_tags }}" | tr ',' '\n' | sed 's/^/  /'
           echo ""
-          echo "=== AWS ECR ==="
-          echo "  ${{ vars.ECR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.branch }}"
-          echo "  ${{ vars.ECR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.sha_short }}"
-          echo "  ${{ vars.ECR_REGISTRY }}/lenses-mcp:${{ steps.meta.outputs.describe }}"
+          echo "=== GCS ==="
+          echo "  gs://${{ steps.meta.outputs.gcs_destination }}/"
+          echo ""
+          echo "=== Artifacts ==="
+          ls -1 out/storage-release/
