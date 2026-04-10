@@ -21,6 +21,7 @@ import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 from config import LENSES_API_KEY
@@ -29,7 +30,67 @@ from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from fastmcp.server.dependencies import get_access_token
 from loguru import logger
 
+if TYPE_CHECKING:
+    from loguru import Logger
+
 logger = logger.bind(name="auth")
+
+
+class AuthenticationRequiredError(ToolError):
+    """Raised when Lenses has rejected a token that introspection had accepted.
+
+    Signals to the caller that their existing session is no longer valid and
+    a fresh OAuth flow is required. Callers that raise this also evict the
+    token from the introspection cache via ``invalidate_cached_token`` so the
+    next request triggers fresh introspection and — if the token is still
+    bad — a standard upstream 401+``WWW-Authenticate`` challenge.
+    """
+
+
+def token_fingerprint(token: str) -> str:
+    """Short, stable, non-reversible identifier for a token, suitable for logs.
+
+    Multi-user OAuth deployments need a way to correlate log lines for the
+    same user without ever logging the raw bearer token. Returns the first
+    eight hex characters of the token's SHA-256 hash — roughly 32 bits of
+    entropy, enough to distinguish concurrent sessions by eye while being
+    cheap, stable across calls, and impossible to reverse.
+
+    The prefix is a substring of the key used by ``DiscoveryTokenVerifier``
+    for cache keying, so an operator with access to both the logs and a
+    cache dump can match entries by string prefix.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()[:8]
+
+
+def handle_downstream_401(
+    token: str,
+    *,
+    detail: str,
+    context: str,
+    client_logger: Logger,
+) -> AuthenticationRequiredError:
+    """Build the re-auth signal for a 401 received from a downstream Lenses call.
+
+    Evicts any cached introspection result for ``token`` and returns an
+    ``AuthenticationRequiredError`` the caller should ``raise ... from e``.
+    Invalidation failures are logged but never propagated — a broken cache
+    layer must not shadow the user-facing re-auth signal.
+
+    ``context`` is a short human-readable phrase ("with 401", "on WebSocket
+    handshake with 401") included in the warning log for correlation.
+    ``client_logger`` is the caller's bound loguru logger so warnings keep
+    the caller's name (HTTPClient / WebSocketClient) for log routing.
+    """
+    token_fp = token_fingerprint(token)
+    try:
+        invalidate_cached_token(token)
+    except Exception:
+        client_logger.opt(exception=True).warning("Failed to invalidate cached token (fp={}) {}", token_fp, context)
+    client_logger.warning("Lenses rejected token (fp={}) {}: {}", token_fp, context, detail)
+    return AuthenticationRequiredError(
+        f"Authentication error: {detail}. Please re-authenticate — your session has expired or been revoked."
+    )
 
 
 @dataclass
@@ -125,6 +186,17 @@ class DiscoveryTokenVerifier(TokenVerifier):
             expires_at = min(expires_at, float(result.expires_at))
         self._cache[key] = _CacheEntry(result=result, expires_at=expires_at)
 
+    def invalidate(self, token: str) -> None:
+        """Remove ``token`` from the introspection cache if present.
+
+        Called when a downstream consumer (e.g. the Lenses HTTP client) has
+        observed that the token is no longer accepted, so the cached positive
+        result is stale and must not be reused.
+        """
+        if self._cache_ttl <= 0:
+            return
+        self._cache.pop(self._hash_token(token), None)
+
     # ------------------------------------------------------------------
     # Scope extraction (RFC 7662)
     # ------------------------------------------------------------------
@@ -163,6 +235,7 @@ class DiscoveryTokenVerifier(TokenVerifier):
             return cached
 
         # RFC 7662 introspection — unauthenticated POST
+        fp = token_fingerprint(token)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
@@ -175,27 +248,33 @@ class DiscoveryTokenVerifier(TokenVerifier):
                 )
 
             if resp.status_code != 200:
-                logger.debug("Introspection returned HTTP {}", resp.status_code)
+                logger.warning(
+                    "Introspection rejected token (fp={}): HTTP {} — {}",
+                    fp,
+                    resp.status_code,
+                    resp.text[:500],
+                )
                 return None
 
             data = resp.json()
 
             if not data.get("active", False):
-                logger.debug("Token introspection returned active=false")
+                logger.warning("Introspection rejected token (fp={}): active=false", fp)
                 return None
 
             client_id = data.get("client_id") or data.get("sub", "unknown")
 
             exp = data.get("exp")
             if exp and exp < time.time():
-                logger.debug("Introspected token is expired")
+                logger.warning("Introspection rejected token (fp={}): expired (exp={})", fp, exp)
                 return None
 
             scopes = self._extract_scopes(data)
 
             if self.required_scopes and not set(self.required_scopes).issubset(set(scopes)):
-                logger.debug(
-                    "Token missing required scopes. Has: {}, Required: {}",
+                logger.warning(
+                    "Introspection rejected token (fp={}): missing required scopes. Has: {}, Required: {}",
+                    fp,
                     scopes,
                     self.required_scopes,
                 )
@@ -212,14 +291,38 @@ class DiscoveryTokenVerifier(TokenVerifier):
             return result
 
         except httpx.TimeoutException:
-            logger.debug("Introspection request timed out")
+            logger.warning("Introspection request timed out for token (fp={})", fp)
             return None
         except httpx.RequestError as e:
-            logger.debug("Introspection request failed: {}", e)
+            logger.warning("Introspection request failed for token (fp={}): {}", fp, e)
             return None
         except Exception as e:
-            logger.debug("Introspection error: {}", e)
+            logger.warning("Introspection error for token (fp={}): {}", fp, e)
             return None
+
+
+def invalidate_cached_token(token: str) -> None:
+    """Evict ``token`` from the active server's introspection cache, if any.
+
+    Looks up the running FastMCP server via ``get_server()`` and calls
+    ``invalidate`` on its ``DiscoveryTokenVerifier`` if one is attached.
+
+    Safe no-op when:
+    - Called outside a request context (e.g. stdio startup)
+    - The server has no auth provider (unauthenticated deployments)
+    - The attached verifier isn't a ``DiscoveryTokenVerifier`` (e.g. tests with
+      a different verifier, future migration to a different auth scheme)
+    - Caching is disabled (``INTROSPECTION_CACHE_TTL=0``)
+    """
+    from fastmcp.server.dependencies import get_server
+
+    try:
+        server = get_server()
+    except RuntimeError:
+        return  # no active request context
+    verifier = getattr(server.auth, "token_verifier", None)
+    if isinstance(verifier, DiscoveryTokenVerifier):
+        verifier.invalidate(token)
 
 
 def resolve_token() -> str:

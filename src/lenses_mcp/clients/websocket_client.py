@@ -11,9 +11,10 @@ import json
 from typing import Any
 
 import websockets
-from auth import resolve_token
+from auth import handle_downstream_401, resolve_token
 from config import LENSES_API_WEBSOCKET_PORT, LENSES_API_WEBSOCKET_URL
 from loguru import logger
+from websockets.exceptions import InvalidStatus
 
 logger = logger.bind(name="WebSocketClient")
 
@@ -26,7 +27,8 @@ class LensesWebSocketClient:
 
     async def _make_request(self, endpoint: str, sql: str) -> list[dict[str, Any]]:
         uri = f"{self.base_url}{endpoint}"
-        headers = {"Authorization": f"Bearer {resolve_token()}"}
+        token = resolve_token()
+        headers = {"Authorization": f"Bearer {token}"}
 
         try:
             async with websockets.connect(uri=uri, additional_headers=headers) as ws:
@@ -59,6 +61,16 @@ class LensesWebSocketClient:
                             return records
                         case _:
                             logger.info(f"Discarding unsupported message type: {message_type}")
+        except InvalidStatus as e:
+            if e.response.status_code == 401:
+                raise handle_downstream_401(
+                    token,
+                    detail="Lenses rejected the bearer token during the WebSocket handshake",
+                    context="on WebSocket handshake with 401",
+                    client_logger=logger,
+                ) from e
+            logger.error(f"WebSocket handshake rejected: {e}")
+            raise
         except Exception as e:
             logger.error(f"Unhandled error while fetching messages: {e}")
             raise e

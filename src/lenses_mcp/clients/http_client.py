@@ -9,7 +9,7 @@ forwarded to Lenses without leaking across concurrent requests.
 from typing import Any
 
 import httpx
-from auth import resolve_token
+from auth import handle_downstream_401, resolve_token
 from config import LENSES_API_HTTP_PORT, LENSES_API_HTTP_URL
 from loguru import logger
 
@@ -34,10 +34,11 @@ class LensesAPIClient:
 
     async def _make_request(self, method: str, endpoint: str, data: dict | None = None) -> dict[str, Any]:
         url = f"{self.base_url}{endpoint}"
+        token = resolve_token()
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": f"Bearer {resolve_token()}",
+            "Authorization": f"Bearer {token}",
         }
 
         try:
@@ -57,12 +58,10 @@ class LensesAPIClient:
             return response.json()
 
         except httpx.HTTPStatusError as e:
-            error_detail = "Unknown error"
-            try:
-                error_response = e.response.json()
-                error_detail = error_response.get("title", f"HTTP {e.response.status_code}: {e.response.text}")
-            except Exception:
-                error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
+            error_detail = _extract_error_detail(e.response)
+
+            if e.response.status_code == 401:
+                raise handle_downstream_401(token, detail=error_detail, context="with 401", client_logger=logger) from e
 
             error_message = f"API request failed: {error_detail}"
             logger.error(error_message)
@@ -71,6 +70,19 @@ class LensesAPIClient:
             error_message = f"Network error: {e!s}"
             logger.error(error_message)
             raise Exception(error_message) from e
+
+
+def _extract_error_detail(response: httpx.Response) -> str:
+    """Best-effort extraction of a human-readable error detail from a Lenses error response.
+
+    Tries JSON first (``title`` or ``error_description``), falling back to the
+    raw body with the status code.
+    """
+    try:
+        body = response.json()
+        return body.get("title") or body.get("error_description") or f"HTTP {response.status_code}: {response.text}"
+    except Exception:
+        return f"HTTP {response.status_code}: {response.text}"
 
 
 api_client = LensesAPIClient()

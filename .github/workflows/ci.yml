@@ -36,6 +36,23 @@ jobs:
           path: coverage.xml
 
   # ──────────────────────────────────────────────
+  # Lockfile sync — uv.lock must match pyproject.toml
+  #
+  # The Dockerfile installs via `uv sync --frozen`, which reads strictly
+  # from uv.lock. If pyproject.toml is bumped without regenerating the
+  # lock, the production image silently ships the old version. This guard
+  # fails CI when the two files are out of sync.
+  # ──────────────────────────────────────────────
+  lock-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-uv
+
+      - name: Verify uv.lock is in sync with pyproject.toml
+        run: uv lock --check
+
+  # ──────────────────────────────────────────────
   # Lint + format
   # ──────────────────────────────────────────────
   lint:
@@ -148,7 +165,7 @@ jobs:
   # ──────────────────────────────────────────────
   ci-passed:
     if: always()
-    needs: [test, lint, licenses, build-container, security, secrets]
+    needs: [test, lock-check, lint, licenses, build-container, security, secrets]
     runs-on: ubuntu-latest
     steps:
       - name: Check required jobs

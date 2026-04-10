@@ -34,21 +34,40 @@ LENSES_API_WEBSOCKET_PORT = os.getenv("LENSES_API_WEBSOCKET_PORT", LENSES_API_WE
 
 LENSES_API_KEY = os.getenv("LENSES_API_KEY", "")
 
-# MCP server transport configuration
-TRANSPORT = os.getenv("TRANSPORT", "stdio")
+# OAuth 2.1 gateway config. OAuth is enabled when MCP_ADVERTISED_URL is set —
+# this is the signal that the MCP server is being deployed somewhere clients
+# need to reach over the network. When unset, the server runs without
+# RemoteAuthProvider and tools fall back to the static LENSES_API_KEY
+# (legacy / stdio behavior — see auth.resolve_token).
+#
+# MCP_ADVERTISED_URL is the public URL at which this MCP server is reachable by
+# clients. It is published as the "resource" field in the protected-resource
+# metadata and must exactly match the URL clients use to connect (scheme, host,
+# path prefix) — otherwise strict MCP clients will reject the metadata as
+# mismatched.
+#
+# LENSES_ADVERTISED_URL is the public URL of Lenses HQ that MCP clients are
+# directed to for OAuth login. It is *advertised* in the protected-resource
+# metadata, never contacted by the MCP server itself. In simple deployments
+# where the MCP server and the MCP client both reach Lenses on the same URL,
+# leave it unset: it defaults to LENSES_URL. Override only in split-plane
+# deployments where the MCP server reaches Lenses over an internal address
+# (e.g. cluster DNS) while clients reach it over a public one.
+MCP_ADVERTISED_URL = os.getenv("MCP_ADVERTISED_URL")
+LENSES_ADVERTISED_URL = os.getenv("LENSES_ADVERTISED_URL", LENSES_URL)
+# Scopes the resource requires. Published in protected-resource metadata so
+# compliant clients include them in their /authorize request.
+MCP_SCOPES = [s.strip() for s in os.getenv("MCP_SCOPES", "read,write,delete").split(",") if s.strip()]
+
+# MCP server transport configuration.
+# Defaults to "http" whenever OAuth is enabled (MCP_ADVERTISED_URL is set),
+# otherwise "stdio" for local development with LENSES_API_KEY. Set TRANSPORT
+# explicitly to opt into "streamable-http", "sse", or to force a specific mode.
+TRANSPORT = os.getenv("TRANSPORT") or ("http" if MCP_ADVERTISED_URL else "stdio")
 HOST = os.getenv("HOST", "0.0.0.0")  # noqa: S104
 PORT = int(os.getenv("PORT", "8000"))
 # Consumed directly by FastMCP internals; surfaced here for visibility/logging.
 FASTMCP_STATELESS_HTTP = os.getenv("FASTMCP_STATELESS_HTTP", "false")
-
-# OAuth 2.1 gateway config. When AUTH_SERVER_URL is unset, the MCP server runs
-# without RemoteAuthProvider and tools fall back to the static LENSES_API_KEY
-# (legacy / stdio behavior — see auth.resolve_token).
-AUTH_SERVER_URL = os.getenv("AUTH_SERVER_URL")
-MCP_SERVER_BASE_URL = os.getenv("MCP_SERVER_BASE_URL")
-# Scopes the resource requires. Published in protected-resource metadata so
-# compliant clients include them in their /authorize request.
-MCP_SCOPES = [s.strip() for s in os.getenv("MCP_SCOPES", "read,write,delete").split(",") if s.strip()]
 
 # RFC 7662 Token Introspection config.
 # The introspection URL is discovered from .well-known/oauth-authorization-server

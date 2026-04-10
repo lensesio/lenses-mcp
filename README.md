@@ -126,14 +126,14 @@ docker run -p 8000:8000 \
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `LENSES_API_KEY` | Yes | - | Your Lenses API key (create via [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts)) |
+| `LENSES_API_KEY` | Yes (unless using OAuth) | - | Your Lenses API key (create via [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts)) |
 | `LENSES_URL` | No | `http://localhost:9991` | Lenses instance URL in format `[scheme]://[host]:[port]`. Use `https://` for secure connections (automatically uses `wss://` for WebSockets) |
-| `TRANSPORT` | No | `stdio` | Transport mode: `stdio`, `http`, or `sse` |
+| `TRANSPORT` | No | `http` if `MCP_ADVERTISED_URL` is set, else `stdio` | Transport mode: `stdio`, `http`, or `sse` |
 | `PORT` | No | `8000` | Port to listen on (only used with `http` or `sse` transport) |
-| `AUTH_SERVER_URL` | No | - | OAuth 2.1 authorization server base URL. Enables token introspection when set (see [OAuth 2.1 Authentication](#7-oauth-21-authentication)) |
-| `MCP_SERVER_BASE_URL` | When `AUTH_SERVER_URL` is set | - | Public base URL of this MCP server, published in protected-resource metadata |
+| `MCP_ADVERTISED_URL` | Yes for OAuth | - | Public base URL of this MCP server as reachable by clients. Setting this turns OAuth on and defaults `TRANSPORT` to `http` (see [OAuth 2.1 Authentication](#7-oauth-21-authentication)) |
+| `LENSES_ADVERTISED_URL` | No | `LENSES_URL` | Public Lenses HQ URL advertised to MCP clients for OAuth login. Override only in split-plane deployments where the MCP server reaches Lenses on an internal address |
 | `MCP_SCOPES` | No | `read,write,delete` | Comma-separated OAuth scopes advertised in protected-resource metadata |
-| `INTROSPECTION_URL` | No | Discovered from auth server metadata | Override for the RFC 7662 token introspection endpoint URL |
+| `INTROSPECTION_URL` | No | Discovered from `LENSES_ADVERTISED_URL` metadata | Override for the RFC 7662 token introspection endpoint URL |
 | `INTROSPECTION_CACHE_TTL` | No | `0` (disabled) | Cache TTL for introspection results in seconds |
 
 **Legacy environment variables** (for backward compatibility):
@@ -158,11 +158,11 @@ docker build -t lensesio/mcp .
 
 ## 7. OAuth 2.1 Authentication
 
-When `AUTH_SERVER_URL` is set, the MCP server runs as an **OAuth 2.1 Protected Resource** with full [RFC 7662 Token Introspection](https://oauth.net/2/token-introspection/). This replaces the static `LENSES_API_KEY` approach with bearer-token authentication for HTTP transports.
+When `MCP_ADVERTISED_URL` is set, the MCP server runs as an **OAuth 2.1 Protected Resource** with full [RFC 7662 Token Introspection](https://oauth.net/2/token-introspection/). This replaces the static `LENSES_API_KEY` approach with bearer-token authentication for HTTP transports, and also defaults `TRANSPORT` to `http`.
 
 ### How it works
 
-The authentication flow involves three participants: the **MCP client**, the **authorization server** (at `AUTH_SERVER_URL`), and this **MCP server** (the resource server).
+The authentication flow involves three participants: the **MCP client**, the **authorization server** (Lenses HQ at `LENSES_ADVERTISED_URL`, which defaults to `LENSES_URL`), and this **MCP server** (the resource server).
 
 ```
 MCP Client                    Auth Server                   MCP Server
@@ -201,7 +201,7 @@ MCP Client                    Auth Server                   MCP Server
 
 1. **Protected Resource Metadata** (RFC 9728) — `RemoteAuthProvider` serves `/.well-known/oauth-protected-resource/mcp` so clients can discover which authorization server to use and what scopes are available.
 
-2. **Auto-Discovery** — On the first incoming request, the `DiscoveryTokenVerifier` lazily fetches `{AUTH_SERVER_URL}/.well-known/oauth-authorization-server` to discover the `introspection_endpoint`. The endpoint URL can also be set explicitly via `INTROSPECTION_URL`.
+2. **Auto-Discovery** — On the first incoming request, the `DiscoveryTokenVerifier` lazily fetches `{LENSES_ADVERTISED_URL}/.well-known/oauth-authorization-server` to discover the `introspection_endpoint`. The endpoint URL can also be set explicitly via `INTROSPECTION_URL`.
 
 3. **Token Introspection** (RFC 7662) — For each incoming bearer token, the verifier POSTs to the introspection endpoint (`/oauth2/introspect`) without client authentication. The authorization server responds with:
    - `active` — whether the token is valid
@@ -227,38 +227,56 @@ Scopes are not enforced globally at the introspection level — a token with any
 
 ### Configuration
 
-Only two environment variables are required:
+In a simple deployment, only two environment variables are required:
 
 ```bash
-AUTH_SERVER_URL=https://your-auth-server.example.com
-MCP_SERVER_BASE_URL=http://localhost:8000
+LENSES_URL=https://lenses.example.com
+MCP_ADVERTISED_URL=http://localhost:8000
 ```
 
-The authorization server at `AUTH_SERVER_URL` must support:
+`TRANSPORT` defaults to `http` whenever `MCP_ADVERTISED_URL` is set, so you don't need to set it explicitly. `LENSES_ADVERTISED_URL` defaults to `LENSES_URL`, so you only need to set it in **split-plane deployments** where the MCP server reaches Lenses on an internal address but clients reach it on a public one:
+
+```bash
+# Split-plane: MCP server → Lenses over internal DNS,
+# MCP clients → Lenses over the public URL
+LENSES_URL=http://lenses-hq.internal:9991
+LENSES_ADVERTISED_URL=https://lenses.example.com
+MCP_ADVERTISED_URL=https://mcp.example.com
+```
+
+Lenses HQ (reached via `LENSES_ADVERTISED_URL`) must support:
 - **OAuth 2.0 Authorization Server Metadata** ([RFC 8414](https://datatracker.ietf.org/doc/html/rfc8414)) at `/.well-known/oauth-authorization-server`
-- **Token Introspection** ([RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662)) at the `introspection_endpoint` (unauthenticated)
+- **Token Introspection** ([RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662)) at the `introspection_endpoint`, with client authentication **disabled**
 - **PKCE with S256** ([RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636)) for client authorization flows
 
-No client credentials are needed — the introspection endpoint does not require authentication.
+The MCP server does not send client credentials when introspecting a token.
+On the Lenses HQ side this requires:
+
+```yaml
+oauth2:
+  authorizationServer:
+    unauthenticatedIntrospection: true
+```
+
+in the Lenses HQ config. Without this flag the introspection endpoint will
+reject the MCP server's unauthenticated POST and every bearer token will be
+rejected as invalid.
 
 ### Running with OAuth
 
 ```bash
 # Local development
-AUTH_SERVER_URL=https://lenses.example.com \
-MCP_SERVER_BASE_URL=http://localhost:8000 \
-TRANSPORT=http \
+LENSES_URL=https://lenses.example.com \
+MCP_ADVERTISED_URL=http://localhost:8000 \
 uv run src/lenses_mcp/server.py
 ```
 
 ```bash
 # Docker
 docker run -p 8000:8000 \
-   -e LENSES_URL=http://lenses:9991 \
-   -e TRANSPORT=http \
-   -e AUTH_SERVER_URL=https://lenses.example.com \
-   -e MCP_SERVER_BASE_URL=http://localhost:8000 \
+   -e LENSES_URL=https://lenses.example.com \
+   -e MCP_ADVERTISED_URL=http://localhost:8000 \
    lensesio/mcp
 ```
 
-When `AUTH_SERVER_URL` is not set, the server falls back to the static `LENSES_API_KEY` for backward compatibility.
+When `MCP_ADVERTISED_URL` is not set, the server falls back to the static `LENSES_API_KEY` for backward compatibility and `TRANSPORT` defaults to `stdio`.
