@@ -15,6 +15,7 @@ from config import (
     LENSES_API_WEBSOCKET_URL,
     MCP_ADVERTISED_URL,
     MCP_SCOPES,
+    OAUTH_ENABLED,
     PORT,
     TRANSPORT,
 )
@@ -34,6 +35,7 @@ from tools.topics import register_topics
 logger = logger.bind(name="MCPServer")
 
 logger.info("Starting Lenses MCP Server")
+logger.info("Auth mode: {}", "OAuth 2.1" if OAUTH_ENABLED else "API key")
 logger.info(f"Transport: {TRANSPORT}")
 if TRANSPORT != "stdio":
     logger.info(f"Listening on: {HOST}:{PORT}")
@@ -44,6 +46,7 @@ logger.info(f"Lenses API WebSocket URL: {LENSES_API_WEBSOCKET_URL}:{LENSES_API_W
 
 def build_auth_provider(
     *,
+    oauth_enabled: bool,
     mcp_advertised_url: str | None,
     lenses_advertised_url: str,
     internal_lenses_base: str,
@@ -53,10 +56,9 @@ def build_auth_provider(
 ) -> RemoteAuthProvider | None:
     """Construct the OAuth resource-server provider, or return None when OAuth is off.
 
-    Wires RemoteAuthProvider only when ``mcp_advertised_url`` is set — that's
-    the signal the operator is deploying publicly. Without it, the server runs
-    unauthenticated and tools fall back to the static LENSES_API_KEY (legacy /
-    stdio behavior — see ``auth.resolve_token``).
+    Wires RemoteAuthProvider only when ``oauth_enabled`` is ``True``.
+    Without it, the server runs unauthenticated and tools fall back to the
+    static LENSES_API_KEY (see ``auth.resolve_token``).
 
     Split-plane invariant: introspection MUST use ``internal_lenses_base`` (the
     same composition the data-plane HTTP client uses), NOT
@@ -69,7 +71,7 @@ def build_auth_provider(
     Extracted as a pure function so tests can exercise every config combination
     without monkey-patching ``sys.modules``.
     """
-    if not mcp_advertised_url:
+    if not oauth_enabled:
         return None
     return RemoteAuthProvider(
         token_verifier=DiscoveryTokenVerifier(
@@ -78,12 +80,14 @@ def build_auth_provider(
             cache_ttl_seconds=introspection_cache_ttl if introspection_cache_ttl > 0 else None,
         ),
         authorization_servers=[AnyHttpUrl(lenses_advertised_url)],
-        base_url=mcp_advertised_url,
+        # Only pass base_url if it's set; RemoteAuthProvider expects AnyHttpUrl | str, not None
+        **({"base_url": mcp_advertised_url} if mcp_advertised_url else {}),
         scopes_supported=mcp_scopes,
     )
 
 
 auth = build_auth_provider(
+    oauth_enabled=OAUTH_ENABLED,
     mcp_advertised_url=MCP_ADVERTISED_URL,
     lenses_advertised_url=LENSES_ADVERTISED_URL,
     internal_lenses_base=f"{LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}",

@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import httpx
-from config import LENSES_API_KEY
+from config import LENSES_API_KEY, OAUTH_ENABLED
 from fastmcp.exceptions import ToolError
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from fastmcp.server.dependencies import get_access_token
@@ -328,20 +328,26 @@ def invalidate_cached_token(token: str) -> None:
 def resolve_token() -> str:
     """Bearer token to forward to Lenses for the current call.
 
-    Resolution order:
-    1. Per-request token from FastMCP's auth context (OAuth / introspection).
-    2. Static ``LENSES_API_KEY`` from env (legacy / stdio fallback).
-    3. ToolError if neither is available.
-    """
-    try:
-        access_token = get_access_token()
-    except (LookupError, RuntimeError):
-        access_token = None  # outside a request context (e.g. stdio)
+    When ``OAUTH_ENABLED`` is ``True``, the token is always resolved from
+    FastMCP's per-request auth context (OAuth / introspection).  The static
+    ``LENSES_API_KEY`` fallback is skipped so that a misconfigured deployment
+    never silently falls back to a shared key.
 
-    if access_token is not None:
-        return access_token.token
+    When ``OAUTH_ENABLED`` is ``False``, the static ``LENSES_API_KEY`` is
+    returned directly without probing the OAuth context.
+    """
+    if OAUTH_ENABLED:
+        try:
+            access_token = get_access_token()
+        except (LookupError, RuntimeError):
+            access_token = None
+
+        if access_token is not None:
+            return access_token.token
+
+        raise ToolError("Authentication required — no OAuth token found in request context")
 
     if LENSES_API_KEY:
         return LENSES_API_KEY
 
-    raise ToolError("Authentication required")
+    raise ToolError("Authentication required — LENSES_API_KEY is not set")

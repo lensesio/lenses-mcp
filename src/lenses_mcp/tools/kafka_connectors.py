@@ -1,8 +1,8 @@
 from typing import Any
 
 from clients.http_client import api_client
+from config import oauth_required_scopes
 from fastmcp import FastMCP
-from fastmcp.server.auth import require_scopes
 
 """
 Registers all Kafka Connector operations with the MCP server.
@@ -15,7 +15,7 @@ def register_kafka_connectors(mcp: FastMCP):
     # KAFKA CONNECTOR OPERATIONS
     # ==========================
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def list_kafka_connectors(
         environment: str, cluster: list[str] | None = None, class_name: list[str] | None = None
     ) -> dict[str, Any]:
@@ -52,7 +52,7 @@ def register_kafka_connectors(mcp: FastMCP):
 
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def get_kafka_connector_target_definition(
         environment: str, connect_cluster_name: str, connector_name: str
     ) -> str:
@@ -73,7 +73,7 @@ def register_kafka_connectors(mcp: FastMCP):
         )
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool(auth=require_scopes("write"))
+    @mcp.tool(auth=oauth_required_scopes("write"))
     async def create_kafka_connector(
         environment: str, name: str, cluster: str, configuration: dict[str, Any]
     ) -> dict[str, Any]:
@@ -94,7 +94,7 @@ def register_kafka_connectors(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/kafka-connect/connectors"
         return await api_client._make_request("POST", endpoint, payload)
 
-    @mcp.tool(auth=require_scopes("write"))
+    @mcp.tool(auth=oauth_required_scopes("write"))
     async def set_action_on_kafka_connector(
         environment: str, cluster: str, connector: str, action: str
     ) -> dict[str, Any]:
@@ -120,7 +120,7 @@ def register_kafka_connectors(mcp: FastMCP):
         )
         return await api_client._make_request("PUT", endpoint)
 
-    @mcp.tool(auth=require_scopes("write"))
+    @mcp.tool(auth=oauth_required_scopes("write"))
     async def restart_kafka_connector_task(
         environment: str, cluster: str, connector: str, task_id: int
     ) -> dict[str, Any]:
@@ -142,7 +142,7 @@ def register_kafka_connectors(mcp: FastMCP):
         )
         return await api_client._make_request("PUT", endpoint)
 
-    @mcp.tool(auth=require_scopes("delete"))
+    @mcp.tool(auth=oauth_required_scopes("delete"))
     async def delete_kafka_connector(environment: str, cluster: str, connector: str) -> dict[str, Any]:
         """
         Deletes a Kafka connector.
@@ -160,7 +160,7 @@ def register_kafka_connectors(mcp: FastMCP):
         )
         return await api_client._make_request("DELETE", endpoint)
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def validate_connector_configuration(
         environment: str, name: str, cluster: str, configuration: dict[str, Any]
     ) -> dict[str, Any]:

@@ -317,23 +317,39 @@ def test_extract_scopes_missing():
 
 
 # ---------------------------------------------------------------------------
-# resolve_token — fallback to LENSES_API_KEY
+# resolve_token — API-key mode (OAUTH_ENABLED=False)
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_token_falls_back_to_api_key():
-    """When no OAuth context exists, resolve_token returns the static API key."""
+@patch("auth.OAUTH_ENABLED", False)
+def test_resolve_token_returns_api_key_when_oauth_off():
+    """With OAUTH_ENABLED=False, resolve_token returns the static API key."""
     api_key = "static-key-123"
     with patch("auth.LENSES_API_KEY", api_key):
         assert resolve_token() == api_key
 
 
+@patch("auth.OAUTH_ENABLED", False)
 @patch("auth.LENSES_API_KEY", "")
-def test_resolve_token_raises_without_any_credential():
-    """ToolError is raised when neither OAuth context nor API key are available."""
+def test_resolve_token_raises_without_api_key():
+    """ToolError when OAUTH_ENABLED=False and LENSES_API_KEY is empty."""
     from fastmcp.exceptions import ToolError
 
-    with pytest.raises(ToolError, match="Authentication required"):
+    with pytest.raises(ToolError, match="LENSES_API_KEY"):
+        resolve_token()
+
+
+# ---------------------------------------------------------------------------
+# resolve_token — OAuth mode (OAUTH_ENABLED=True)
+# ---------------------------------------------------------------------------
+
+
+@patch("auth.OAUTH_ENABLED", True)
+def test_resolve_token_raises_when_oauth_on_and_no_context():
+    """ToolError when OAUTH_ENABLED=True but no OAuth context is present."""
+    from fastmcp.exceptions import ToolError
+
+    with pytest.raises(ToolError, match="no OAuth token"):
         resolve_token()
 
 

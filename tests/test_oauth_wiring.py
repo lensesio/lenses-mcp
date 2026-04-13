@@ -35,6 +35,7 @@ def test_split_plane_introspection_uses_internal_url():
     HTTP client uses.
     """
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
@@ -50,6 +51,7 @@ def test_split_plane_introspection_uses_internal_url():
 def test_split_plane_advertises_public_url_to_clients():
     """The advertised URL stays public — clients need to reach it from their browsers."""
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
@@ -71,6 +73,7 @@ def test_discovery_is_bypassed_entirely():
     call _discover() at all, by passing introspection_url at construction.
     """
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
@@ -91,6 +94,7 @@ def test_discovery_is_bypassed_entirely():
 def test_simple_deployment_uses_lenses_url_for_both():
     """In a single-URL deployment, internal and advertised URLs are the same value."""
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         # In a simple deployment, server.py wires both of these from LENSES_URL
         lenses_advertised_url="https://lenses.example.com",
@@ -118,6 +122,7 @@ def test_explicit_introspection_url_overrides_internal_default():
     completely separate host from the data-plane API.
     """
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
@@ -136,6 +141,7 @@ def test_explicit_introspection_url_overrides_internal_default():
 def test_introspection_cache_ttl_zero_means_no_cache():
     """A TTL of 0 disables caching (passes None to the verifier)."""
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
@@ -149,6 +155,7 @@ def test_introspection_cache_ttl_zero_means_no_cache():
 def test_introspection_cache_ttl_positive_enables_cache():
     """A positive TTL enables introspection result caching."""
     auth = build_auth_provider(
+        oauth_enabled=True,
         mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
@@ -164,23 +171,11 @@ def test_introspection_cache_ttl_positive_enables_cache():
 # ---------------------------------------------------------------------------
 
 
-def test_no_oauth_when_mcp_advertised_url_is_none():
-    """Without mcp_advertised_url, build_auth_provider returns None."""
+def test_no_oauth_when_oauth_enabled_is_false():
+    """With oauth_enabled=False, build_auth_provider returns None."""
     auth = build_auth_provider(
-        mcp_advertised_url=None,
-        lenses_advertised_url="https://lenses.example.com",
-        internal_lenses_base="http://lenses.internal:9991",
-        introspection_url=None,
-        introspection_cache_ttl=0,
-        mcp_scopes=["read"],
-    )
-    assert auth is None
-
-
-def test_no_oauth_when_mcp_advertised_url_is_empty_string():
-    """An empty string is also falsy — no OAuth."""
-    auth = build_auth_provider(
-        mcp_advertised_url="",
+        oauth_enabled=False,
+        mcp_advertised_url="https://mcp.example.com",
         lenses_advertised_url="https://lenses.example.com",
         internal_lenses_base="http://lenses.internal:9991",
         introspection_url=None,

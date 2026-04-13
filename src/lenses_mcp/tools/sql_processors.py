@@ -1,9 +1,9 @@
 from typing import Any
 
 from clients.http_client import api_client
+from config import oauth_required_scopes
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from fastmcp.server.auth import require_scopes
 
 """
 Registers all SQL Processor operations with the MCP server.
@@ -16,7 +16,7 @@ def register_sql_processors(mcp: FastMCP):
     # SQL PROCESSOR OPERATIONS
     # ========================
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def list_sql_processors(environment: str) -> dict[str, Any]:
         """
         Retrieves all SQL processor details.
@@ -30,7 +30,7 @@ def register_sql_processors(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v2/streams"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def get_sql_processor(environment: str, sql_processor_id: str) -> dict[str, Any]:
         """
         Retrieves a single SQL processor by ID.
@@ -45,7 +45,7 @@ def register_sql_processors(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v2/streams/{sql_processor_id}"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool(auth=require_scopes("write"))
+    @mcp.tool(auth=oauth_required_scopes("write"))
     async def create_sql_processor(
         environment: str,
         name: str,
@@ -89,7 +89,7 @@ def register_sql_processors(mcp: FastMCP):
         except Exception as e:
             raise ToolError(f"SQL processor creation failed: {e}") from e
 
-    @mcp.tool(auth=require_scopes("delete"))
+    @mcp.tool(auth=oauth_required_scopes("delete"))
     async def delete_sql_processor(environment: str, sql_processor_id: str) -> str:
         """
         Removes an existing SQL processor.
@@ -108,7 +108,7 @@ def register_sql_processors(mcp: FastMCP):
     # DEPLOYMENT OPERATIONS
     # =====================
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def get_deployment_targets(environment: str) -> dict[str, Any]:
         """
         Returns deployment information including available Kubernetes clusters and Connect clusters.
@@ -122,7 +122,7 @@ def register_sql_processors(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/v1/deployment/targets"
         return await api_client._make_request("GET", endpoint)
 
-    @mcp.tool(auth=require_scopes("read"))
+    @mcp.tool(auth=oauth_required_scopes("read"))
     async def get_pod_logs(environment: str, cluster: str, namespace: str, pod: str) -> str:
         """
         Returns the logs produced by a running Kubernetes Pod.
