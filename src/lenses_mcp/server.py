@@ -73,6 +73,8 @@ def build_auth_provider(
     """
     if not oauth_enabled:
         return None
+    if not mcp_advertised_url:
+        raise ValueError("oauth_enabled requires mcp_advertised_url")
     return RemoteAuthProvider(
         token_verifier=DiscoveryTokenVerifier(
             auth_server_url=internal_lenses_base,
@@ -80,8 +82,7 @@ def build_auth_provider(
             cache_ttl_seconds=introspection_cache_ttl if introspection_cache_ttl > 0 else None,
         ),
         authorization_servers=[AnyHttpUrl(lenses_advertised_url)],
-        # Only pass base_url if it's set; RemoteAuthProvider expects AnyHttpUrl | str, not None
-        **({"base_url": mcp_advertised_url} if mcp_advertised_url else {}),
+        base_url=mcp_advertised_url,
         scopes_supported=mcp_scopes,
     )
 
