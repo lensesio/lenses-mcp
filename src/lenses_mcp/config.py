@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastmcp.server.auth import require_scopes
+from loguru import logger
 
 load_dotenv()
 
@@ -59,7 +60,9 @@ OAUTH_ENABLED = os.getenv("OAUTH_ENABLED", "false").lower() in ("true", "1", "ye
 # deployments where the MCP server reaches Lenses over an internal address
 # (e.g. cluster DNS) while clients reach it over a public one.
 MCP_ADVERTISED_URL = os.getenv("MCP_ADVERTISED_URL")
-LENSES_ADVERTISED_URL = os.getenv("LENSES_ADVERTISED_URL", LENSES_URL)
+LENSES_ADVERTISED_URL = os.getenv("LENSES_ADVERTISED_URL") or LENSES_URL
+if LENSES_ADVERTISED_URL == LENSES_URL and not os.getenv("LENSES_ADVERTISED_URL"):
+    logger.info("LENSES_ADVERTISED_URL not set, defaulting to LENSES_URL ({})", LENSES_URL)
 # Scopes the resource requires. Published in protected-resource metadata so
 # compliant clients include them in their /authorize request.
 MCP_SCOPES = [s.strip() for s in os.getenv("MCP_SCOPES", "read,write,delete").split(",") if s.strip()]
