@@ -8,21 +8,20 @@
 
 This is the [Lenses](https://lenses.io/) MCP (Model Context Protocol) server for Apache Kafka. Lenses offers a developer experience solution for engineers building real-time applications connected to Kafka. It's built for the enterprise and backed by a powerful IAM and governance model. 
 
-With Lenses, you can find, explore, transform, integrate and replicate data across a multi-Kafka and vendor estate. Now, all this power is accessible through your AI Assistant or Agent via this Lenses MCP Server for Kafka.
+With Lenses, you can find, explore, transform, integrate and replicate data across a multi-Kafka and vendor estate. Now, all this power is accessible through your AI tools and AI Agents via MCP, bringing real-time context into your agentic engineering workflows.
 
-[See it explained and in action](https://www.youtube.com/watch?v=m8bSLyRnMAk) whilst walking through the streets of New York city!
-
-Try it today with the free [Lenses Community Edition](https://lenses.io/community-edition/) (restricted by number of users and enterprise features). Lenses CE comes with a pre-configured single broker Kafka cluster, ideal for local development or demonstration. Connect up to two of your own Kafka clusters and then use natural language to interact with your streaming data. 
+The quickest way to try the MCP server is with the free [Lenses Community Edition](https://lenses.io/community-edition/), which runs Lenses MCP Server as a remote MCP server and comes with a pre-configured single broker Kafka cluster with demo data, ideal for local development or evaluation ([steps here](https://docs.lenses.io/latest/mcp/lenses-mcp-server/getting-started/run-with-community-edition)).
 
 ## Table of Contents
 
 - [1. Install uv and Python](#1-install-uv-and-python)
 - [2. Configure Environment Variables](#2-configure-environment-variables)
-- [3. Add Lenses API Key](#3-add-lenses-api-key)
-- [4. Install Dependencies and Run the Server](#4-install-dependencies-and-run-the-server)
-- [5. Optional Context7 MCP Server](#5-optional-context7-mcp-server)
+- [3. OAuth 2.1 Authentication (Recommended)](#3-oauth-21-authentication-recommended)
+- [4. Lenses API Key (Fallback)](#4-lenses-api-key-fallback)
+- [5. Running the Server Locally](#5-running-the-server-locally)
 - [6. Running with Docker](#6-running-with-docker)
-- [7. OAuth 2.1 Authentication](#7-oauth-21-authentication)
+- [7. Optional Context7 MCP Server](#7-optional-context7-mcp-server)
+- [Appendix: OAuth Flow Details](#appendix-oauth-flow-details)
 
 
 ## 1. Install uv and Python
@@ -37,32 +36,175 @@ uv run python --version
 
 ## 2. Configure Environment Variables
 
-Copy the example environment file.
+Copy the example environment file and configure it based on your authentication method:
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and fill in the required values such as your Lenses instance details and Lenses API key.
+**Required variables** depend on your authentication choice:
 
-## 3. Add Lenses API Key
+- **For OAuth** (recommended): `LENSES_URL` and `MCP_ADVERTISED_URL`
+- **For API Key** (fallback): `LENSES_URL` and `LENSES_API_KEY`
 
-Create a Lenses API key by creating an [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts). Add the API  key to `.env` with the variable name, `LENSES_API_KEY`.
 
-## 4. Install Dependencies and Run the Server
+## 3. OAuth 2.1 Authentication (Recommended)
 
-Use `uv` to create a virtual environment, install the project dependencies in it and then run the MCP server with the FastMCP CLI using the default stdio transport.
+OAuth 2.1 is the recommended authentication method for all Lenses MCP deployments. It provides secure, scope-based authorization without sharing static API keys.
+
+### How it works
+
+OAuth 2.1 uses bearer tokens that are validated via [RFC 7662 Token Introspection](https://datatracker.ietf.org/doc/html/rfc7662). The flow involves three participants:
+
+1. **MCP Client** — Your AI tool (Claude, Cursor, etc.)
+2. **Authorization Server** — Lenses HQ at `LENSES_ADVERTISED_URL`
+3. **MCP Server** — This server (the resource server)
+
+When you connect, the client automatically:
+1. Discovers OAuth metadata from this server (`/.well-known/oauth-protected-resource/mcp`)
+2. Registers itself with the authorization server
+3. Initiates OAuth authorization (with PKCE) and gets an access token
+4. Uses the token to authenticate requests to this MCP server
+
+This server then validates the token with Lenses HQ before allowing access to Kafka resources.
+
+### Simple setup
+
+To use OAuth, you should set `OAUTH_ENABLED` to `true`, then you only need to set two environment variables:
+
+```bash
+OAUTH_ENABLED=true
+LENSES_URL=https://lenses.example.com
+MCP_ADVERTISED_URL=http://localhost:8000
+```
+
+- `LENSES_URL` — Your Lenses instance (used internally and as the OAuth authorization server)
+- `MCP_ADVERTISED_URL` — The public URL where this MCP server is reachable by clients
+
+`TRANSPORT` automatically defaults to `http` when `MCP_ADVERTISED_URL` is set.
+
+### Advanced: split-plane deployments
+
+If the MCP server reaches Lenses on an internal address but clients reach it on a public URL:
+
+```bash
+OAUTH_ENABLED=true
+LENSES_URL=http://lenses-hq.internal:9991
+LENSES_ADVERTISED_URL=https://lenses.example.com
+MCP_ADVERTISED_URL=https://mcp.example.com
+```
+
+### Authorization scopes
+
+The server advertises three scopes:
+
+| Scope | Description |
+|-------|-------------|
+| `read` | Read-only access to Lenses resources (topics, environments, connectors, etc.) |
+| `write` | Create and update resources |
+| `delete` | Delete resources |
+
+When you authenticate, you'll be prompted to grant these scopes. Your token will only grant the scopes you select.
+
+### Lenses HQ configuration
+
+Lenses HQ must support OAuth 2.0 and token introspection. Ensure your Lenses HQ config includes:
+
+```yaml
+oauth2:
+  authorizationServer:
+    unauthenticatedIntrospection: true
+```
+
+This allows the MCP server to validate tokens without client credentials.
+
+## 4. Lenses API Key (Fallback)
+
+For backward compatibility and testing, you can use a static API key instead of OAuth. This is not recommended for production but may be useful for local development or legacy systems.
+
+Create a Lenses API key by provisioning an [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts) in Lenses. Add the API key to `.env`:
+
+```bash
+LENSES_URL=https://lenses.example.com
+LENSES_API_KEY=<YOUR_LENSES_API_KEY>
+```
+
+When using API key authentication, `TRANSPORT` defaults to `stdio` (local only) unless you explicitly set `MCP_ADVERTISED_URL`.
+
+## 5. Running the Server Locally
+
+First, install dependencies:
+
 ```bash
 uv sync
+```
+
+### With OAuth (Recommended)
+
+Run with stdio transport (for local AI tools):
+
+```bash
+OAUTH_ENABLED=true \
+LENSES_URL=https://lenses.example.com \
+MCP_ADVERTISED_URL=http://localhost:8000 \
 uv run src/lenses_mcp/server.py
 ```
 
-To run as a remote server, use the http transport.
+Or run with HTTP transport (for remote clients):
+
 ```bash
+OAUTH_ENABLED=true \
+LENSES_URL=https://lenses.example.com \
+MCP_ADVERTISED_URL=http://localhost:8000 \
 uv run fastmcp run src/lenses_mcp/server.py --transport=http --port=8000
 ```
 
-To run in Claude Desktop, Gemini CLI, Cursor, etc. use the following JSON configuration.
+To configure in Claude Desktop, Cursor, or similar tools:
+
+```json
+{
+  "mcpServers": {
+    "Lenses": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project", "<ABSOLUTE_PATH_TO_THIS_REPO>",
+        "--with", "fastmcp",
+        "fastmcp",
+        "run",
+        "<ABSOLUTE_PATH_TO_THIS_REPO>/src/lenses_mcp/server.py"
+      ],
+      "env": {
+        "OAUTH_ENABLED": "true",
+        "LENSES_URL": "https://lenses.example.com",
+        "MCP_ADVERTISED_URL": "http://localhost:8000"
+      },
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+### With API Key (Legacy)
+
+Using a static API key:
+
+```bash
+LENSES_URL=https://lenses.example.com \
+LENSES_API_KEY=<YOUR_LENSES_API_KEY> \
+uv run src/lenses_mcp/server.py
+```
+
+Or with HTTP transport:
+
+```bash
+LENSES_URL=https://lenses.example.com \
+LENSES_API_KEY=<YOUR_LENSES_API_KEY> \
+uv run fastmcp run src/lenses_mcp/server.py --transport=http --port=8000
+```
+
+To configure in Claude Desktop, Cursor, or similar tools:
+
 ```json
 {
   "mcpServers": {
@@ -77,6 +219,7 @@ To run in Claude Desktop, Gemini CLI, Cursor, etc. use the following JSON config
         "<ABSOLUTE_PATH_TO_THIS_REPO>/src/lenses_mcp/server.py"
       ],
       "env": {
+        "LENSES_URL": "https://lenses.example.com",
         "LENSES_API_KEY": "<YOUR_LENSES_API_KEY>"
       },
       "transport": "stdio"
@@ -84,54 +227,80 @@ To run in Claude Desktop, Gemini CLI, Cursor, etc. use the following JSON config
   }
 }
 ```
+
 Note: Some clients may require the absolute path to `uv` in the command.
-
-## 5. Optional Context7 MCP Server
-
-Lenses documentation is available on [Context7](https://context7.com/websites/lenses_io). It is optional but highly recommended to use the [Context7 MCP Server](https://github.com/upstash/context7) and adjust your prompts with `use context7` to ensure the documentation available to the LLM is up to date.
 
 ## 6. Running with Docker
 
-The Lenses MCP server is available as a Docker image at `lensesio/mcp`. You can run it with different transport modes depending on your use case.
+The Lenses MCP server is available as a Docker image at `lensesio/mcp`. You can run it with OAuth (recommended) or API key authentication.
 
-### Quick Start
+### With OAuth (Recommended)
 
-Run the server with stdio transport (default):
+**Stdio transport** (for local AI tools):
+
 ```bash
-docker run \
-   -e LENSES_API_KEY=<YOUR_API_KEY> \
-   -e LENSES_URL=http://localhost:9991 \
-   lensesio/mcp
+docker run --rm -it \
+  -e OAUTH_ENABLED=true \
+  -e LENSES_URL=https://lenses.example.com \
+  -e MCP_ADVERTISED_URL=http://localhost:8000 \
+  lensesio/mcp
 ```
 
-Run the server with HTTP transport (listens on `http://0.0.0.0:8000/mcp`):
+**HTTP transport** (for remote clients, listens on `http://0.0.0.0:8000/mcp`):
+
 ```bash
-docker run -p 8000:8000 \
-   -e LENSES_API_KEY=<YOUR_API_KEY> \
-   -e LENSES_URL=http://localhost:9991 \
-   -e TRANSPORT=http \
-   lensesio/mcp
+docker run --rm -it -p 8000:8000 \
+  -e OAUTH_ENABLED=true \
+  -e LENSES_URL=https://lenses.example.com \
+  -e MCP_ADVERTISED_URL=http://localhost:8000 \
+  -e TRANSPORT=http \
+  lensesio/mcp
 ```
 
-Run the server with SSE transport (listens on `http://0.0.0.0:8000/sse`):
+For split-plane deployments where the MCP server reaches Lenses internally but clients use a public URL:
+
 ```bash
-docker run -p 8000:8000 \
-   -e LENSES_API_KEY=<YOUR_API_KEY> \
-   -e LENSES_URL=http://localhost:9991 \
-   -e TRANSPORT=sse \
-   lensesio/mcp
+docker run --rm -it -p 8000:8000 \
+  -e OAUTH_ENABLED=true \
+  -e LENSES_URL=http://lenses-hq.internal:9991 \
+  -e LENSES_ADVERTISED_URL=https://lenses.example.com \
+  -e MCP_ADVERTISED_URL=https://mcp.example.com \
+  -e TRANSPORT=http \
+  lensesio/mcp
 ```
 
-### Environment Variables
+### With API Key (Legacy)
+
+**Stdio transport** (for local AI tools):
+
+```bash
+docker run --rm -it \
+  -e LENSES_API_KEY=<YOUR_API_KEY> \
+  -e LENSES_URL=https://lenses.example.com \
+  lensesio/mcp
+```
+
+**HTTP transport** (for remote clients, listens on `http://0.0.0.0:8000/mcp`):
+
+```bash
+docker run --rm -it -p 8000:8000 \
+  -e LENSES_API_KEY=<YOUR_API_KEY> \
+  -e LENSES_URL=https://lenses.example.com \
+  -e TRANSPORT=http \
+  lensesio/mcp
+```
+
+### Environment Variables Reference
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `LENSES_API_KEY` | Yes (unless using OAuth) | - | Your Lenses API key (create via [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts)) |
-| `LENSES_URL` | No | `http://localhost:9991` | Lenses instance URL in format `[scheme]://[host]:[port]`. Use `https://` for secure connections (automatically uses `wss://` for WebSockets) |
-| `TRANSPORT` | No | `http` if `MCP_ADVERTISED_URL` is set, else `stdio` | Transport mode: `stdio`, `http`, or `sse` |
-| `PORT` | No | `8000` | Port to listen on (only used with `http` or `sse` transport) |
-| `MCP_ADVERTISED_URL` | Yes for OAuth | - | Public base URL of this MCP server as reachable by clients. Setting this turns OAuth on and defaults `TRANSPORT` to `http` (see [OAuth 2.1 Authentication](#7-oauth-21-authentication)) |
-| `LENSES_ADVERTISED_URL` | No | `LENSES_URL` | Public Lenses HQ URL advertised to MCP clients for OAuth login. Override only in split-plane deployments where the MCP server reaches Lenses on an internal address |
+| `OAUTH_ENABLED` | No | `false` | Enables/disables OAuth |
+| `LENSES_URL` | Yes | `http://localhost:9991` | Lenses instance URL in format `[scheme]://[host]:[port]`. Use `https://` for secure connections (automatically uses `wss://` for WebSockets) |
+| `MCP_ADVERTISED_URL` | For OAuth | - | Public base URL of this MCP server as reachable by clients. Setting this enables OAuth and defaults `TRANSPORT` to `http` |
+| `LENSES_API_KEY` | For API Key auth | - | Your Lenses API key (create via [IAM Service Account](https://docs.lenses.io/latest/user-guide/iam/service-accounts)). Only needed if not using OAuth |
+| `TRANSPORT` | No | `http` if `MCP_ADVERTISED_URL` is set, else `stdio` | Transport mode: `stdio`, `http` |
+| `PORT` | No | `8000` | Port to listen on (only used with `http` transport) |
+| `LENSES_ADVERTISED_URL` | No | `LENSES_URL` | Public Lenses HQ URL advertised to MCP clients for OAuth. Override only in split-plane deployments |
 | `MCP_SCOPES` | No | `read,write,delete` | Comma-separated OAuth scopes advertised in protected-resource metadata |
 | `INTROSPECTION_URL` | No | Discovered from `LENSES_ADVERTISED_URL` metadata | Override for the RFC 7662 token introspection endpoint URL |
 | `INTROSPECTION_CACHE_TTL` | No | `0` (disabled) | Cache TTL for introspection results in seconds |
@@ -148,7 +317,7 @@ These are automatically derived from `LENSES_URL` but can be explicitly set to o
 - **http**: HTTP endpoint at `/mcp`
 - **sse**: Server-Sent Events endpoint at `/sse`
 
-### Building the Docker Image
+### Building the Docker Image Locally
 
 To build the Docker image locally:
 
@@ -156,48 +325,15 @@ To build the Docker image locally:
 docker build -t lensesio/mcp .
 ```
 
-## 7. OAuth 2.1 Authentication
+## 7. Optional Context7 MCP Server
 
-When `MCP_ADVERTISED_URL` is set, the MCP server runs as an **OAuth 2.1 Protected Resource** with full [RFC 7662 Token Introspection](https://oauth.net/2/token-introspection/). This replaces the static `LENSES_API_KEY` approach with bearer-token authentication for HTTP transports, and also defaults `TRANSPORT` to `http`.
+Lenses documentation is available on [Context7](https://context7.com/websites/lenses_io). It is optional but highly recommended to use the [Context7 MCP Server](https://github.com/upstash/context7) and adjust your prompts with `use context7` to ensure the documentation available to the LLM is up to date.
 
-### How it works
+## Appendix: OAuth Flow Details
 
-The authentication flow involves three participants: the **MCP client**, the **authorization server** (Lenses HQ at `LENSES_ADVERTISED_URL`, which defaults to `LENSES_URL`), and this **MCP server** (the resource server).
+### Token validation sequence
 
-```
-MCP Client                    Auth Server                   MCP Server
-    │                              │                             │
-    │  1. GET /.well-known/        │                             │
-    │     oauth-protected-resource │                             │
-    │─────────────────────────────────────────────────────────►  │
-    │  ◄── authorization_servers,                                │
-    │      scopes_supported                                      │
-    │                              │                             │
-    │  2. POST /register (DCR)     │                             │
-    │─────────────────────────────►│                             │
-    │  ◄── client_id, secret       │                             │
-    │                              │                             │
-    │  3. /authorize + PKCE (S256) │                             │
-    │─────────────────────────────►│                             │
-    │  ◄── authorization_code      │                             │
-    │                              │                             │
-    │  4. POST /token              │                             │
-    │─────────────────────────────►│                             │
-    │  ◄── access_token            │                             │
-    │                              │                             │
-    │  5. MCP request + Bearer token                             │
-    │─────────────────────────────────────────────────────────►  │
-    │                              │  6. POST /oauth2/introspect │
-    │                              │  ◄──────────────────────────│
-    │                              │  ── active, scopes, exp ──► │
-    │                              │                             │
-    │  ◄── MCP response (or 401)                                 │
-    │                              │                             │
-```
-
-**Steps 1–4** are handled by the MCP client and the authorization server. The MCP server is not involved.
-
-**Steps 5–6** are where this server validates the token:
+The MCP server validates bearer tokens using the following sequence:
 
 1. **Protected Resource Metadata** (RFC 9728) — `RemoteAuthProvider` serves `/.well-known/oauth-protected-resource/mcp` so clients can discover which authorization server to use and what scopes are available.
 
@@ -225,7 +361,7 @@ The server advertises three scopes in its protected-resource metadata:
 
 Scopes are not enforced globally at the introspection level — a token with any subset of these scopes is accepted. Per-tool scope enforcement can be added using FastMCP's `require_scopes` decorator.
 
-### Configuration
+### Configuration and Requirements
 
 In a simple deployment, only two environment variables are required:
 
@@ -234,23 +370,21 @@ LENSES_URL=https://lenses.example.com
 MCP_ADVERTISED_URL=http://localhost:8000
 ```
 
-`TRANSPORT` defaults to `http` whenever `MCP_ADVERTISED_URL` is set, so you don't need to set it explicitly. `LENSES_ADVERTISED_URL` defaults to `LENSES_URL`, so you only need to set it in **split-plane deployments** where the MCP server reaches Lenses on an internal address but clients reach it on a public one:
+For **split-plane deployments** where the MCP server reaches Lenses on an internal address but clients use a public URL, set:
 
 ```bash
-# Split-plane: MCP server → Lenses over internal DNS,
-# MCP clients → Lenses over the public URL
 LENSES_URL=http://lenses-hq.internal:9991
 LENSES_ADVERTISED_URL=https://lenses.example.com
 MCP_ADVERTISED_URL=https://mcp.example.com
 ```
 
-Lenses HQ (reached via `LENSES_ADVERTISED_URL`) must support:
+Lenses HQ must support:
+
 - **OAuth 2.0 Authorization Server Metadata** ([RFC 8414](https://datatracker.ietf.org/doc/html/rfc8414)) at `/.well-known/oauth-authorization-server`
 - **Token Introspection** ([RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662)) at the `introspection_endpoint`, with client authentication **disabled**
 - **PKCE with S256** ([RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636)) for client authorization flows
 
-The MCP server does not send client credentials when introspecting a token.
-On the Lenses HQ side this requires:
+The MCP server does not send client credentials when introspecting. Lenses HQ must be configured with:
 
 ```yaml
 oauth2:
@@ -258,25 +392,4 @@ oauth2:
     unauthenticatedIntrospection: true
 ```
 
-in the Lenses HQ config. Without this flag the introspection endpoint will
-reject the MCP server's unauthenticated POST and every bearer token will be
-rejected as invalid.
-
-### Running with OAuth
-
-```bash
-# Local development
-LENSES_URL=https://lenses.example.com \
-MCP_ADVERTISED_URL=http://localhost:8000 \
-uv run src/lenses_mcp/server.py
-```
-
-```bash
-# Docker
-docker run -p 8000:8000 \
-   -e LENSES_URL=https://lenses.example.com \
-   -e MCP_ADVERTISED_URL=http://localhost:8000 \
-   lensesio/mcp
-```
-
-When `MCP_ADVERTISED_URL` is not set, the server falls back to the static `LENSES_API_KEY` for backward compatibility and `TRANSPORT` defaults to `stdio`.
+Without this setting, every bearer token will be rejected as invalid.
