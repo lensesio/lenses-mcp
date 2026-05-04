@@ -31,7 +31,7 @@ def register_sql(mcp: FastMCP):
     # =======
 
     @mcp.prompt()
-    def generate_sql_query_for_task(task: str) -> str:
+    def write_sql_query(task: str) -> str:
         """Write a Lenses SQL query to achieve a task"""
         return f"""
             Task: {task}

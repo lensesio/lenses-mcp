@@ -152,7 +152,7 @@ def register_sql_processors(mcp: FastMCP):
             """
 
     @mcp.prompt()
-    def generate_create_sql_processor_prompt(name: str, sql: str, environment: str) -> str:
+    def create_sql_processor_guide(name: str, sql: str, environment: str) -> str:
         """Create a SQL processor with the specified name and SQL query"""
         return f"""
             Please create a SQL processor named '{name}' in the '{environment}' environment

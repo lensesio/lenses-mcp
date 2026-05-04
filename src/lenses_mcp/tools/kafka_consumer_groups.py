@@ -50,9 +50,10 @@ def register_kafka_consumer_groups(mcp: FastMCP):
     ) -> dict[str, Any]:
         """
         Reset offsets for all partitions of one or more topics in a consumer group.
+        In Kafka terminology this is committing an offset.
 
         The reset is applied to every partition of every listed topic. For
-        per-partition control use `update_consumer_group_topic_partition_offset`.
+        per-partition control use `update_consumer_partition_offset`.
 
         The consumer group must be inactive (no live members), otherwise Kafka
         rejects the offset commit.
@@ -85,8 +86,9 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         """
         Delete the committed offsets for all partitions of one or more topics
         in a consumer group.
+        In Kafka terminology this is resetting an offset.
 
-        For per-partition control use `delete_consumer_group_topic_partition_offset`.
+        For per-partition control use `delete_consumer_partition_offset`.
 
         The consumer group must be inactive (no live members), otherwise Kafka
         rejects the deletion.
@@ -104,11 +106,12 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         return await api_client._make_request("POST", endpoint, data={"topics": topics})
 
     @mcp.tool(auth=oauth_required_scopes("write"))
-    async def update_consumer_group_topic_partition_offset(
+    async def update_consumer_partition_offset(
         environment: str, group_id: str, topic: str, partition: int, offset: int
     ) -> dict[str, Any]:
         """
         Update the offset for a topic-partition for a given group.
+        In Kafka terminology this is committing an offset.
 
         Args:
             environment: The environment name.
@@ -128,11 +131,12 @@ def register_kafka_consumer_groups(mcp: FastMCP):
         return await api_client._make_request("PUT", endpoint, data=payload)
 
     @mcp.tool(auth=oauth_required_scopes("delete"))
-    async def delete_consumer_group_topic_partition_offset(
+    async def delete_consumer_partition_offset(
         environment: str, group_id: str, topic: str, partition: int
     ) -> dict[str, Any]:
         """
         Delete the offset for a topic-partition for a given group.
+        In Kafka terminology this is resetting an offset.
 
         Args:
             environment: The environment name.

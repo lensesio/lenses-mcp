@@ -194,7 +194,7 @@ def register_kafka_connectors(mcp: FastMCP):
             """
 
     @mcp.prompt()
-    def generate_create_kafka_connector_prompt(name: str, cluster: str, connector_class: str, environment: str) -> str:
+    def create_kafka_connector_guide(name: str, cluster: str, connector_class: str, environment: str) -> str:
         """Create a Kafka connector with the specified configuration"""
         return f"""
             Please create a Kafka connector named '{name}' in the '{environment}' environment
