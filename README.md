@@ -1,8 +1,7 @@
 # 🌊🔍 Lenses MCP Server for Apache Kafka 🔎🌊
 
-[![CI](https://github.com/lensesio/lenses-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/lensesio/lenses-mcp/actions/workflows/ci.yml)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://python.org/)
-[![FastMCP](https://img.shields.io/badge/FastMCP-3.1.1-green)](https://gofastmcp.com/)
+[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://python.org/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.4.7-green)](https://gofastmcp.com/)
 [![MCP](https://img.shields.io/badge/MCP-compatible-green)](https://modelcontextprotocol.io/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -28,7 +27,7 @@ The quickest way to try the MCP server is with the free [Lenses Community Editio
 
 We use `uv` for dependency management and project setup. If you don't have `uv` installed, follow the [official installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 
-This project has been built using *Python 3.12* and to make sure Python is correctly installed, run the following command to check the version.
+This project requires *Python 3.13* (any 3.13.x release). To verify your Python version, run:
 
 ```bash
 uv run python --version

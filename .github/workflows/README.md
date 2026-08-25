@@ -16,7 +16,7 @@ All jobs run in parallel:
 
 | Job | What it does |
 |---|---|
-| **test** | pytest with coverage (Python 3.12 + 3.13 matrix) |
+| **test** | pytest with coverage (Python 3.13) |
 | **lint** | Ruff linter + format check |
 | **typecheck** | mypy static type analysis (non-blocking) |
 | **vulnerabilities** | pip-audit dependency vulnerability scan (non-blocking) |
