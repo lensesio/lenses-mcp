@@ -110,7 +110,7 @@ jobs:
         run: |
           uv run pip-licenses \
             --fail-on="GNU General Public License v3 (GPLv3);GNU Affero General Public License v3 (AGPLv3)" \
-            --allow-only="MIT;MIT License;MIT style;DFSG approved; MIT License;BSD License;BSD-2-Clause;BSD-3-Clause;Apache Software License;Apache-2.0;ISC License (ISCL);Mozilla Public License 2.0 (MPL 2.0);Python Software Foundation License;PSF-2.0;The Unlicense (Unlicense);Apache Software License; MIT License;BSD License; GNU General Public License (GPL); Public Domain;Apache-2.0 OR BSD-3-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 AND BSD-2-Clause;UNKNOWN"
+            --allow-only="MIT;MIT License;MIT style;MIT-0;DFSG approved; MIT License;BSD License;BSD-2-Clause;BSD-3-Clause;Apache Software License;Apache-2.0;ISC;ISC License (ISCL);Mozilla Public License 2.0 (MPL 2.0);Python Software Foundation License;PSF-2.0;The Unlicense (Unlicense);Apache Software License; MIT License;BSD License; GNU General Public License (GPL); Public Domain;Apache-2.0 OR BSD-3-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 AND BSD-2-Clause;UNKNOWN"
 
   # ──────────────────────────────────────────────
   # Container build validation
