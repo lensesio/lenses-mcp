@@ -11,7 +11,7 @@ import sys
 from contextlib import contextmanager
 from unittest.mock import patch
 
-import httpx
+import httpx2
 import pytest
 from fastmcp import Client, FastMCP
 
@@ -25,19 +25,19 @@ from tools.kafka_consumer_groups import register_kafka_consumer_groups
 def _capturing_transport(status_code: int = 200, body: dict | None = None):
     """Replace the shared async client with a mock that records every request.
 
-    Yields the list of captured `httpx.Request`s so tests can assert on
+    Yields the list of captured `httpx2.Request`s so tests can assert on
     method, URL and body without involving a real Lenses instance.
     """
-    captured: list[httpx.Request] = []
+    captured: list[httpx2.Request] = []
     response_body = body if body is not None else {"success": True}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured.append(request)
-        return httpx.Response(status_code, json=response_body)
+        return httpx2.Response(status_code, json=response_body)
 
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     original = http_client_module._async_client
-    http_client_module._async_client = httpx.AsyncClient(transport=transport)
+    http_client_module._async_client = httpx2.AsyncClient(transport=transport)
     try:
         yield captured
     finally:

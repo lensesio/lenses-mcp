@@ -1,6 +1,6 @@
 """HTTP client for Lenses API operations.
 
-Uses a single long-lived `httpx.AsyncClient` for connection pooling, TLS
+Uses a single long-lived `httpx2.AsyncClient` for connection pooling, TLS
 session reuse, and HTTP keep-alive. The `Authorization` header is rebuilt
 per call via `auth.resolve_token()`, so each caller's bearer token is
 forwarded to Lenses without leaking across concurrent requests.
@@ -8,7 +8,7 @@ forwarded to Lenses without leaking across concurrent requests.
 
 from typing import Any
 
-import httpx
+import httpx2
 from auth import handle_downstream_401, resolve_token
 from config import LENSES_API_HTTP_PORT, LENSES_API_HTTP_URL
 from loguru import logger
@@ -17,14 +17,14 @@ logger = logger.bind(name="HTTPClient")
 
 LENSES_API_HTTP_BASE_URL = f"{LENSES_API_HTTP_URL}:{LENSES_API_HTTP_PORT}"
 
-_async_client: httpx.AsyncClient | None = None
+_async_client: httpx2.AsyncClient | None = None
 
 
-def _get_async_client() -> httpx.AsyncClient:
-    """Lazily construct and return the shared `httpx.AsyncClient`."""
+def _get_async_client() -> httpx2.AsyncClient:
+    """Lazily construct and return the shared `httpx2.AsyncClient`."""
     global _async_client
     if _async_client is None:
-        _async_client = httpx.AsyncClient(timeout=30.0)
+        _async_client = httpx2.AsyncClient(timeout=30.0)
     return _async_client
 
 
@@ -57,7 +57,7 @@ class LensesAPIClient:
 
             return response.json()
 
-        except httpx.HTTPStatusError as e:
+        except httpx2.HTTPStatusError as e:
             error_detail = _extract_error_detail(e.response)
 
             if e.response.status_code == 401:
@@ -66,13 +66,13 @@ class LensesAPIClient:
             error_message = f"API request failed: {error_detail}"
             logger.error(error_message)
             raise Exception(error_message) from e
-        except httpx.RequestError as e:
+        except httpx2.RequestError as e:
             error_message = f"Network error: {e!s}"
             logger.error(error_message)
             raise Exception(error_message) from e
 
 
-def _extract_error_detail(response: httpx.Response) -> str:
+def _extract_error_detail(response: httpx2.Response) -> str:
     """Best-effort extraction of a human-readable error detail from a Lenses error response.
 
     Tries JSON first (``title`` or ``error_description``), falling back to the

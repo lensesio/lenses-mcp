@@ -5,7 +5,7 @@ import sys
 from contextlib import contextmanager
 from unittest.mock import patch
 
-import httpx
+import httpx2
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "lenses_mcp"))
@@ -22,14 +22,14 @@ def _mock_lenses_response(status_code: int, body):
     Restores the original client on exit so tests don't leak state.
     """
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         if isinstance(body, dict):
-            return httpx.Response(status_code, json=body)
-        return httpx.Response(status_code, text=body)
+            return httpx2.Response(status_code, json=body)
+        return httpx2.Response(status_code, text=body)
 
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     original = http_client_module._async_client
-    http_client_module._async_client = httpx.AsyncClient(transport=transport)
+    http_client_module._async_client = httpx2.AsyncClient(transport=transport)
     try:
         yield
     finally:
@@ -175,19 +175,19 @@ async def test_403_treated_as_generic_error(_stub_invalidate_cached_token):
 
 def test_extract_error_detail_uses_title_field():
     """RFC 7807 'title' field is preferred when present."""
-    resp = httpx.Response(401, json={"title": "Unauthorized", "error_description": "expired"})
+    resp = httpx2.Response(401, json={"title": "Unauthorized", "error_description": "expired"})
     assert _extract_error_detail(resp) == "Unauthorized"
 
 
 def test_extract_error_detail_falls_back_to_error_description():
     """When no 'title', fall back to OAuth 'error_description'."""
-    resp = httpx.Response(401, json={"error_description": "token expired"})
+    resp = httpx2.Response(401, json={"error_description": "token expired"})
     assert _extract_error_detail(resp) == "token expired"
 
 
 def test_extract_error_detail_handles_non_json_body():
     """A non-JSON body is surfaced as 'HTTP <status>: <text>'."""
-    resp = httpx.Response(500, text="<html>oops</html>")
+    resp = httpx2.Response(500, text="<html>oops</html>")
     detail = _extract_error_detail(resp)
     assert "HTTP 500" in detail
     assert "oops" in detail
@@ -195,13 +195,13 @@ def test_extract_error_detail_handles_non_json_body():
 
 def test_extract_error_detail_handles_empty_body():
     """An empty body doesn't crash — returns a stub with the status code."""
-    resp = httpx.Response(401, text="")
+    resp = httpx2.Response(401, text="")
     assert "HTTP 401" in _extract_error_detail(resp)
 
 
 def test_extract_error_detail_handles_json_missing_both_fields():
     """JSON without title or error_description falls back to the raw body."""
-    resp = httpx.Response(500, json={"unrelated": "value"})
+    resp = httpx2.Response(500, json={"unrelated": "value"})
     assert "HTTP 500" in _extract_error_detail(resp)
 
 

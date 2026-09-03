@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import httpx
+import httpx2
 from config import LENSES_API_KEY, OAUTH_ENABLED
 from fastmcp.exceptions import ToolError
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
@@ -138,7 +138,7 @@ class DiscoveryTokenVerifier(TokenVerifier):
         metadata_url = f"{self._auth_server_url}/.well-known/oauth-authorization-server"
         logger.info("Discovering auth server metadata from {}", metadata_url)
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx2.AsyncClient(timeout=10) as client:
             resp = await client.get(metadata_url)
             resp.raise_for_status()
             metadata = resp.json()
@@ -237,7 +237,7 @@ class DiscoveryTokenVerifier(TokenVerifier):
         # RFC 7662 introspection — unauthenticated POST
         fp = token_fingerprint(token)
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx2.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     self._introspection_url,
                     data={"token": token, "token_type_hint": "access_token"},
@@ -290,10 +290,10 @@ class DiscoveryTokenVerifier(TokenVerifier):
             self._set_cached(token, result)
             return result
 
-        except httpx.TimeoutException:
+        except httpx2.TimeoutException:
             logger.warning("Introspection request timed out for token (fp={})", fp)
             return None
-        except httpx.RequestError as e:
+        except httpx2.RequestError as e:
             logger.warning("Introspection request failed for token (fp={}): {}", fp, e)
             return None
         except Exception as e:

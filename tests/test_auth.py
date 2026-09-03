@@ -5,7 +5,7 @@ import sys
 import time
 from unittest.mock import AsyncMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "lenses_mcp"))
@@ -44,23 +44,23 @@ def _mock_transport(
     metadata: dict = METADATA_RESPONSE,
     introspection: dict = ACTIVE_TOKEN_RESPONSE,
     introspection_status: int = 200,
-) -> httpx.MockTransport:
+) -> httpx2.MockTransport:
     """Return a MockTransport that serves metadata and introspection endpoints."""
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.path == "/.well-known/oauth-authorization-server":
-            return httpx.Response(200, json=metadata)
+            return httpx2.Response(200, json=metadata)
         if request.url.path == "/oauth2/introspect":
-            return httpx.Response(introspection_status, json=introspection)
-        return httpx.Response(404)
+            return httpx2.Response(introspection_status, json=introspection)
+        return httpx2.Response(404)
 
-    return httpx.MockTransport(handler)
+    return httpx2.MockTransport(handler)
 
 
-def _patch_client(transport: httpx.MockTransport):
-    """Patch httpx.AsyncClient so each ``async with`` block gets a fresh client."""
-    _OriginalClient = httpx.AsyncClient
-    return patch("auth.httpx.AsyncClient", side_effect=lambda **kw: _OriginalClient(transport=transport))
+def _patch_client(transport: httpx2.MockTransport):
+    """Patch httpx2.AsyncClient so each ``async with`` block gets a fresh client."""
+    _OriginalClient = httpx2.AsyncClient
+    return patch("auth.httpx2.AsyncClient", side_effect=lambda **kw: _OriginalClient(transport=transport))
 
 
 # ---------------------------------------------------------------------------
@@ -129,14 +129,14 @@ async def test_discover_metadata_failure_raises():
     """If metadata fetch fails, the exception propagates and state is unchanged."""
     v = _build_verifier()
 
-    def failing_handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, text="Internal Server Error")
+    def failing_handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(500, text="Internal Server Error")
 
-    transport = httpx.MockTransport(failing_handler)
+    transport = httpx2.MockTransport(failing_handler)
 
     with (
         _patch_client(transport),
-        pytest.raises(httpx.HTTPStatusError),
+        pytest.raises(httpx2.HTTPStatusError),
     ):
         await v._discover()
 
@@ -257,13 +257,13 @@ async def test_verify_token_no_auth_header_sent():
     v = _build_verifier(introspection_url=f"{AUTH_SERVER}/oauth2/introspect")
     captured_headers: dict = {}
 
-    def capturing_handler(request: httpx.Request) -> httpx.Response:
+    def capturing_handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.path == "/oauth2/introspect":
             captured_headers.update(dict(request.headers))
-            return httpx.Response(200, json=ACTIVE_TOKEN_RESPONSE)
-        return httpx.Response(404)
+            return httpx2.Response(200, json=ACTIVE_TOKEN_RESPONSE)
+        return httpx2.Response(404)
 
-    transport = httpx.MockTransport(capturing_handler)
+    transport = httpx2.MockTransport(capturing_handler)
 
     with _patch_client(transport):
         await v.verify_token("some-token")
@@ -277,14 +277,14 @@ async def test_verify_token_caching():
     v = _build_verifier(introspection_url=f"{AUTH_SERVER}/oauth2/introspect", cache_ttl=300)
     call_count = 0
 
-    def counting_handler(request: httpx.Request) -> httpx.Response:
+    def counting_handler(request: httpx2.Request) -> httpx2.Response:
         nonlocal call_count
         if request.url.path == "/oauth2/introspect":
             call_count += 1
-            return httpx.Response(200, json=ACTIVE_TOKEN_RESPONSE)
-        return httpx.Response(404)
+            return httpx2.Response(200, json=ACTIVE_TOKEN_RESPONSE)
+        return httpx2.Response(404)
 
-    transport = httpx.MockTransport(counting_handler)
+    transport = httpx2.MockTransport(counting_handler)
 
     with _patch_client(transport):
         first = await v.verify_token("cached-tok")
@@ -390,14 +390,14 @@ async def test_invalidate_forces_fresh_introspection_on_next_call():
     v = _build_verifier(introspection_url=f"{AUTH_SERVER}/oauth2/introspect", cache_ttl=300)
     call_count = 0
 
-    def counting_handler(request: httpx.Request) -> httpx.Response:
+    def counting_handler(request: httpx2.Request) -> httpx2.Response:
         nonlocal call_count
         if request.url.path == "/oauth2/introspect":
             call_count += 1
-            return httpx.Response(200, json=ACTIVE_TOKEN_RESPONSE)
-        return httpx.Response(404)
+            return httpx2.Response(200, json=ACTIVE_TOKEN_RESPONSE)
+        return httpx2.Response(404)
 
-    transport = httpx.MockTransport(counting_handler)
+    transport = httpx2.MockTransport(counting_handler)
 
     with _patch_client(transport):
         await v.verify_token("tok")  # call 1
