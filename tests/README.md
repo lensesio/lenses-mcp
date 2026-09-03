@@ -20,6 +20,7 @@ make test-cov
 |---|---|
 | `test_config.py` | Configuration parsing — URL defaults, HTTPS/WSS derivation |
 | `test_server_smoke.py` | Server smoke tests — verifies all MCP tools and prompts register correctly |
+| `test_telemetry.py` | OpenTelemetry bootstrap — exporter selection, graceful degradation, and the spans FastMCP emits |
 
 ## Testing Approach
 
@@ -38,5 +39,9 @@ async with Client(mcp) as client:
 
 - Place test files in this directory with the `test_` prefix
 - Use `pytest-asyncio` for async tests (`@pytest.mark.asyncio`)
-- The `src/lenses_mcp` directory is on `sys.path` so you can import modules directly (e.g., `from server import mcp`)
+- Add `src/lenses_mcp` to `sys.path` before importing our modules — nothing does this for you:
+  ```python
+  sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "lenses_mcp"))
+  ```
+  then `from server import mcp`, `import config`, etc. work as expected
 - For tests that call tools requiring a Lenses backend, mock the `api_client` or `websocket_client` singletons

@@ -85,6 +85,28 @@ INTROSPECTION_URL = os.getenv("INTROSPECTION_URL")
 INTROSPECTION_CACHE_TTL = int(os.getenv("INTROSPECTION_CACHE_TTL", "0"))
 
 
+# ── OpenTelemetry ─────────────────────────────────────────────────────
+#
+# FastMCP 4 ships native OpenTelemetry instrumentation built against
+# opentelemetry-api only, so it emits a span per MCP request
+# (`tools/call <name>`, `tools/list`, `prompts/get <name>`, ...) as soon as an
+# SDK and exporter are configured in the process. `telemetry.setup_telemetry`
+# does that configuring; nothing here has any cost while OTEL_ENABLED is false.
+#
+# Only the OTLP/HTTP exporter is a runtime dependency: the gRPC one drags in
+# grpcio and adds ~27MB to the image. Set OTEL_EXPORTER_OTLP_PROTOCOL=grpc and
+# install the `otlp-grpc` extra if you need 4317 instead of 4318.
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "false").lower() in ("true", "1", "yes")
+OTEL_EXPORTER = os.getenv("OTEL_EXPORTER", "otlp").strip().lower()
+OTEL_SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "lenses-mcp")
+OTEL_EXPORTER_OTLP_PROTOCOL = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf").strip().lower()
+# The endpoint itself is deliberately NOT read here. The OpenTelemetry SDK
+# already implements the spec'd OTEL_EXPORTER_OTLP_ENDPOINT semantics -- base
+# URL with the signal path appended for HTTP, OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+# as a full override, plus headers and timeouts -- and passing an endpoint
+# ourselves bypasses all of that.
+
+
 # ── Startup validation ────────────────────────────────────────────────
 
 

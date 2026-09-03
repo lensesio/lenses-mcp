@@ -11,7 +11,15 @@ dependencies = [
     "python-dotenv>=1.0",
     "typing-extensions>=4.15.0",
     "websockets>=15.0.1",
+    # FastMCP's instrumentation is API-only; these make it actually export.
+    # HTTP exporter only -- the gRPC one pulls grpcio and adds ~27MB.
+    "opentelemetry-sdk>=1.30",
+    "opentelemetry-exporter-otlp-proto-http>=1.30",
 ]
+
+[project.optional-dependencies]
+# For collectors that only accept OTLP/gRPC on 4317. Not installed by default.
+otlp-grpc = ["opentelemetry-exporter-otlp-proto-grpc>=1.30"]
 
 [dependency-groups]
 dev = [

@@ -19,7 +19,8 @@ The quickest way to try the MCP server is with the free [Lenses Community Editio
 - [4. Lenses API Key (Fallback)](#4-lenses-api-key-fallback)
 - [5. Running the Server Locally](#5-running-the-server-locally)
 - [6. Running with Docker](#6-running-with-docker)
-- [7. Optional Context7 MCP Server](#7-optional-context7-mcp-server)
+- [7. OpenTelemetry Tracing](#7-opentelemetry-tracing)
+- [8. Optional Context7 MCP Server](#8-optional-context7-mcp-server)
 - [Appendix: OAuth Flow Details](#appendix-oauth-flow-details)
 
 
@@ -303,6 +304,11 @@ docker run --rm -it -p 8000:8000 \
 | `MCP_SCOPES` | No | `read,write,delete` | Comma-separated OAuth scopes advertised in protected-resource metadata |
 | `INTROSPECTION_URL` | No | Discovered from `LENSES_ADVERTISED_URL` metadata | Override for the RFC 7662 token introspection endpoint URL |
 | `INTROSPECTION_CACHE_TTL` | No | `0` (disabled) | Cache TTL for introspection results in seconds |
+| `OTEL_ENABLED` | No | `false` | Export OpenTelemetry traces (see [section 7](#7-opentelemetry-tracing)) |
+| `OTEL_EXPORTER` | No | `otlp` | `otlp` to send to a collector, or `console` to print spans for debugging |
+| `OTEL_SERVICE_NAME` | No | `lenses-mcp` | Service name reported to the tracing backend |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | `http://localhost:4318` | Collector base URL. Read by the OpenTelemetry SDK, so all standard `OTEL_*` variables apply |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | No | `http/protobuf` | `http/protobuf` (port 4318) or `grpc` (port 4317, needs the `otlp-grpc` extra) |
 
 **Legacy environment variables** (for backward compatibility):
 - `LENSES_API_HTTP_URL`, `LENSES_API_HTTP_PORT`
@@ -324,7 +330,92 @@ To build the Docker image locally:
 docker build -t lensesio/mcp .
 ```
 
-## 7. Optional Context7 MCP Server
+## 7. OpenTelemetry Tracing
+
+The server is built on FastMCP 4, which emits an OpenTelemetry span for every
+MCP request — `tools/call <tool_name>`, `tools/list`, `prompts/get <prompt_name>`
+and so on. Spans carry the tool or prompt name, the MCP session id, the
+negotiated protocol version, and error status when a call fails.
+
+Tracing is **off by default** and costs nothing until you switch it on.
+
+### Enabling
+
+```bash
+OTEL_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+uv run python src/lenses_mcp/server.py
+```
+
+With Docker:
+
+```bash
+docker run -p 8000:8000 \
+   -e LENSES_URL=<your-lenses-url> \
+   -e LENSES_API_KEY=<your-api-key> \
+   -e TRANSPORT=http \
+   -e OTEL_ENABLED=true \
+   -e OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4318 \
+   lensesio/mcp
+```
+
+`OTEL_EXPORTER_OTLP_ENDPOINT` is a **base** URL — the SDK appends `/v1/traces`
+for HTTP. Point it at the collector root, not at the traces path. Use
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` if you need to specify the full URL.
+
+### Exporters
+
+The OTLP **HTTP** exporter (port 4318) is included by default. The gRPC
+exporter (port 4317) pulls in `grpcio` and adds roughly 27MB to the image, so
+it is an optional extra:
+
+```bash
+uv sync --extra otlp-grpc
+# then
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4317 ...
+```
+
+Asking for `grpc` without the extra installed logs a warning and leaves tracing
+off; it never prevents the server from starting. The same is true of any other
+telemetry misconfiguration — an unreachable collector or a bad exporter name is
+logged and the server carries on serving requests.
+
+### Verifying locally
+
+The quickest check needs no collector — print spans to stderr:
+
+```bash
+OTEL_ENABLED=true OTEL_EXPORTER=console uv run python src/lenses_mcp/server.py
+```
+
+The console exporter writes to **stderr**, not stdout: with the default `stdio`
+transport, stdout carries the JSON-RPC wire and anything else printed there
+would corrupt it. Redirect stderr to a file if the spans crowd your terminal:
+
+```bash
+OTEL_ENABLED=true OTEL_EXPORTER=console \
+uv run python src/lenses_mcp/server.py 2>spans.log
+```
+
+For a trace UI, Jaeger accepts OTLP/HTTP on 4318 and serves its UI on 16686:
+
+```bash
+docker run -p 16686:16686 -p 4318:4318 \
+  -e COLLECTOR_OTLP_ENABLED=true jaegertracing/all-in-one:1.62.0
+```
+
+Then browse <http://localhost:16686> and select the `lenses-mcp` service.
+
+### Trace context propagation
+
+Spans are emitted per MCP request; there is no session-level parent span. A
+nested trace only forms when the **client** propagates trace context
+(`traceparent` in the request `_meta`), which FastMCP extracts and parents
+from. Clients that are not OpenTelemetry-instrumented produce one root trace
+per call, which is expected. To get grouped traces, instrument the agent that
+calls this server.
+
+## 8. Optional Context7 MCP Server
 
 Lenses documentation is available on [Context7](https://context7.com/websites/lenses_io). It is optional but highly recommended to use the [Context7 MCP Server](https://github.com/upstash/context7) and adjust your prompts with `use context7` to ensure the documentation available to the LLM is up to date.
 

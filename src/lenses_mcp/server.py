@@ -25,6 +25,7 @@ from loguru import logger
 from pydantic import AnyHttpUrl
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from telemetry import setup_telemetry
 from tools.environments import register_environments
 from tools.kafka_connectors import register_kafka_connectors
 from tools.kafka_consumer_groups import register_kafka_consumer_groups
@@ -33,6 +34,11 @@ from tools.sql_processors import register_sql_processors
 from tools.topics import register_topics
 
 logger = logger.bind(name="MCPServer")
+
+# Install the OpenTelemetry SDK before any request is served. FastMCP's
+# instrumentation is a no-op until this runs, and a no-op after it too unless
+# OTEL_ENABLED is set.
+setup_telemetry()
 
 logger.info("Starting Lenses MCP Server")
 logger.info("Auth mode: {}", "OAuth 2.1" if OAUTH_ENABLED else "API key")
