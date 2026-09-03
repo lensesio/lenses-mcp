@@ -26,6 +26,7 @@ from pydantic import AnyHttpUrl
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from telemetry import setup_telemetry
+from tools.approvals import register_approvals
 from tools.environments import register_environments
 from tools.kafka_connectors import register_kafka_connectors
 from tools.kafka_consumer_groups import register_kafka_consumer_groups
@@ -106,6 +107,7 @@ auth = build_auth_provider(
 mcp = FastMCP("Lenses.io", auth=auth, mask_error_details=True)
 
 # Register all Lenses tools modules
+register_approvals(mcp)
 register_environments(mcp)
 register_kafka_connectors(mcp)
 register_kafka_consumer_groups(mcp)

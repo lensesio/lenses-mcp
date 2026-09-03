@@ -1,6 +1,6 @@
 from typing import Any
 
-from clients.http_client import api_client
+from clients.http_client import LensesAPIError, api_client
 from config import oauth_required_scopes
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -91,6 +91,17 @@ def register_topics(mcp: FastMCP):
         endpoint = f"/api/v1/environments/{environment}/proxy/api/topics"
         try:
             return await api_client._make_request("POST", endpoint, payload)
+        except LensesAPIError as e:
+            hint = ""
+            if e.status_code == 403:
+                # A requester-role principal holds governance:CreateRequest but not
+                # kafka:CreateTopic. Without the redirect the model reads the 403 as
+                # "this task is impossible" instead of taking the governed path.
+                hint = (
+                    " The caller may lack kafka:CreateTopic; use request_topic_creation"
+                    " to submit a governed topic-creation request instead."
+                )
+            raise ToolError(f"Topic creation failed: {e}{hint}") from e
         except Exception as e:
             raise ToolError(f"Topic creation failed: {e}") from e
 

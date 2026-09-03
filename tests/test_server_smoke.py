@@ -14,6 +14,10 @@ from server import mcp
 
 # Expected tools registered across all modules
 EXPECTED_TOOLS = [
+    # approvals
+    "request_topic_creation",
+    "list_approval_requests",
+    "get_approval_request",
     # environments
     "list_environments",
     "get_environment",

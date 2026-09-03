@@ -18,6 +18,7 @@ make test-cov
 
 | File | What it tests |
 |---|---|
+| `test_approvals.py` | Governance approval requests — wire shape of the agent's /approvals endpoints |
 | `test_config.py` | Configuration parsing — URL defaults, HTTPS/WSS derivation |
 | `test_server_smoke.py` | Server smoke tests — verifies all MCP tools and prompts register correctly |
 | `test_telemetry.py` | OpenTelemetry bootstrap — exporter selection, graceful degradation, and the spans FastMCP emits |

@@ -28,6 +28,25 @@ def _get_async_client() -> httpx2.AsyncClient:
     return _async_client
 
 
+class LensesAPIError(httpx2.HTTPStatusError):
+    """A Lenses API call that came back with a non-2xx status.
+
+    ``str()`` is exactly the message the previously-raised bare ``Exception``
+    carried, so callers that only format the error are unaffected. What is new
+    is ``status_code``: tools can branch on the HTTP status instead of matching
+    substrings in a message whose wording belongs to Lenses HQ, not to us.
+
+    Subclassing httpx2's own status error is deliberate. FastMCP recognises it
+    (``fastmcp.utilities.exceptions.is_http_status_error``) and turns an
+    upstream 429 into an actionable "retry later" for the model even when
+    ``mask_error_details`` is on; a bare ``Exception`` defeats that check.
+    """
+
+    @property
+    def status_code(self) -> int:
+        return self.response.status_code
+
+
 class LensesAPIClient:
     def __init__(self, base_url: str = LENSES_API_HTTP_BASE_URL):
         self.base_url = base_url.rstrip("/")
@@ -65,7 +84,7 @@ class LensesAPIClient:
 
             error_message = f"API request failed: {error_detail}"
             logger.error(error_message)
-            raise Exception(error_message) from e
+            raise LensesAPIError(error_message, request=e.request, response=e.response) from e
         except httpx2.RequestError as e:
             error_message = f"Network error: {e!s}"
             logger.error(error_message)
